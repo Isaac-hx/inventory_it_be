@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"inventory-it/internal/auth"
 	"inventory-it/internal/config"
 	"inventory-it/internal/database"
 	"inventory-it/internal/user"
@@ -21,10 +22,9 @@ func main() {
 	database.SeedSuperUser(db, cfg)
 
 	//Iniate JWT Config
-	jwtConfig := config.JWTConfig{
-		SecretKey:   cfg.Jwt.Secretkey,
-		ExpiredHour: cfg.Jwt.Expiredhour,
-	}
+
+	jwtConfig := auth.NewJwt(cfg.Jwt.Secretkey)
+
 	//Iniate repository user
 	userRepo := user.NewRepository(db)
 	usecaseRepo := user.NewUsecase(userRepo, jwtConfig)
