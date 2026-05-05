@@ -15,8 +15,10 @@ type JwtConfig struct {
 
 // type object for hold information about claims
 type Claims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID   string `json:"user_id"`
+	Role     string `json:"role"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
@@ -29,10 +31,12 @@ func NewJwt(secretKey string, expiredAt time.Duration) *JwtConfig {
 }
 
 // Method for generate token using jwt config and information in claims object
-func (c *JwtConfig) GenerateToken(userID string, role string) (string, error) {
+func (c *JwtConfig) GenerateToken(userID, role, email, username string) (string, error) {
 	claims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:   userID,
+		Role:     role,
+		Username: username,
+		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(c.expiresAt)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

@@ -9,6 +9,7 @@ import (
 	"inventory-it/internal/database"
 	"inventory-it/internal/user"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 
 	//Iniate JWT Config
 
-	jwtConfig := auth.NewJwt(cfg.Jwt.Secretkey)
+	jwtConfig := auth.NewJwt(cfg.Jwt.Secretkey, time.Duration(cfg.Jwt.Expiredhour))
 
 	//Iniate repository user
 	userRepo := user.NewRepository(db)

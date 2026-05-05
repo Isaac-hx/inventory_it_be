@@ -3,7 +3,8 @@ package user
 import (
 	"context"
 	"errors"
-	"inventory-it/internal/config"
+	"inventory-it/internal/auth"
+
 	"inventory-it/internal/pkg"
 
 	"github.com/google/uuid"
@@ -16,11 +17,11 @@ type Usecase interface {
 
 type usecase struct {
 	repo      Repository
-	jwtConfig config.JWTConfig
+	jwtConfig auth.JwtConfig
 }
 
-func NewUsecase(r Repository, jwtConfig config.JWTConfig) Usecase {
-	return &usecase{repo: r, jwtConfig: jwtConfig}
+func NewUsecase(r Repository, jwtConfig *auth.JwtConfig) Usecase {
+	return &usecase{repo: r, jwtConfig: *jwtConfig}
 }
 func (u *usecase) Register(ctx context.Context, username, email, password, role string) error {
 	//Instatiate object user
@@ -62,7 +63,7 @@ func (u *usecase) Login(ctx context.Context, username, password string) (string,
 	if !pkg.ComparePassword(user.Password, password) {
 		return "", errors.New("Invalid password")
 	}
-	token, err := config.GenerateJWT(u.jwtConfig, user.Username, user.Email, user.Role)
+	token, err := u.jwtConfig.GenerateToken(user.UserId, user.Role, user.Email, user.Username)
 	if err != nil {
 		return "", err
 	}
