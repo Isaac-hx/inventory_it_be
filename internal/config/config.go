@@ -31,9 +31,10 @@ type Config struct {
 		Expiredhour int    `yaml:"expired_hour"`
 	}
 	SuperAdmin struct {
-		Username string `yaml:"username"`
-		Password string `yaml:"password"`
-		Email    string `yaml:"email"`
+		Username     string `yaml:"username"`
+		Password     string `yaml:"password"`
+		Email        string `yaml:"email"`
+		DepartmentId string `yaml:"department_id"`
 	}
 }
 

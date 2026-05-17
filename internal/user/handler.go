@@ -2,90 +2,99 @@
 package user
 
 import (
-	"encoding/json"
 	"inventory-it/internal/pkg"
 	"net/http"
+	"strconv"
 )
 
-// User request via json scheme
-type userRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+type UserFilter struct {
+	Role    string
+	Search  string
+	Limit   int
+	Page    int
+	OrderBy string
+}
+type Handler interface {
+	GetAllUsers(w http.ResponseWriter, r *http.Request)
+	GetUserById(w http.ResponseWriter, r *http.Request)
 }
 
 // Object Handler wiring to usecase
-type Handler struct {
+type handler struct {
 	usecase Usecase
 }
 
 // Constructor object handler
-func NewHandler(u Usecase) *Handler {
-	return &Handler{usecase: u}
+func NewHandler(u Usecase) Handler {
+	return &handler{
+		usecase: u,
+	}
 }
 
-// Method register is used for registration user
-func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	var user userRequest
+// Method get all users
+func (h *handler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+	var userFilter UserFilter
+	//define context
 
-	err := json.NewDecoder(r.Body).Decode(&user)
+	//get query params
+	query := r.URL.Query()
+	role := query.Get("role")
+	search := query.Get("search")
+	limitStr := query.Get("limit")
+	pageStr := query.Get("page")
+	orderBy := query.Get("order_by")
+	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		pkg.ErrorResponse(w, http.StatusBadRequest, err.Error(), err.Error())
-		return
+		limit = 10
 	}
-	if user.Username == "" || user.Password == "" || user.Email == "" || user.Role == "" {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Missing required field!!", nil)
-		return
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		page = 1
 	}
-	if len(user.Username) < 5 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 5 characters!!", nil)
-		return
-	}
-	if len(user.Password) < 8 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Password must be at least 8 characters!!", nil)
 
+	if orderBy != "asc" && orderBy != "desc" {
+		orderBy = "asc"
+	}
+	if role != "superuser" && role != "admin_it" && role != "user" && role != "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid role", "Role must be admin_it or user")
 		return
 	}
-	err = h.usecase.Register(r.Context(), user.Username, user.Email, user.Password, user.Role)
+	if limit < 1 {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid limit", "Limit must be greater than 0")
+		return
+	}
+
+	//structuring object userFilter
+	userFilter.Role = role
+	userFilter.Search = search
+	userFilter.Limit = limit
+	userFilter.Page = page
+	userFilter.OrderBy = orderBy
+
+	//call usecase get all users
+	users, err := h.usecase.GetAllUsers(r.Context(), userFilter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
-
 		return
 	}
 
-	pkg.JSONResponse(w, 200, "User created", nil)
-
+	pkg.JSONResponse(w, http.StatusOK, "Success get all users", users)
 }
 
-func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var user userRequest
+func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
+	//get user id from query params
+	userId := r.PathValue("user_id")
+	if userId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "User ID is required", nil)
+		return
+	}
 
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		pkg.ErrorResponse(w, http.StatusBadRequest, err.Error(), err.Error())
-		return
-	}
-	if user.Username == "" || user.Password == "" {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Missing required field!!", nil)
-		return
-	}
-	if len(user.Username) < 5 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 5 characters!!", nil)
-		return
-	}
-	if len(user.Password) < 8 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Password must be at least 8 characters!!", nil)
-
-		return
-	}
-	token, err := h.usecase.Login(r.Context(), user.Username, user.Password)
+	//call usecase get user by id
+	user, err := h.usecase.GetUserById(r.Context(), userId)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
-
 		return
 	}
 
-	pkg.JSONResponse(w, 200, "Login successful", map[string]string{"token": token})
-
+	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", user)
 }

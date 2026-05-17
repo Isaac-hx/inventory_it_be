@@ -42,13 +42,14 @@ func SeedSuperUser(db *sql.DB, cfg *config.Config) {
 
 	err := db.QueryRow("SELECT username FROM users WHERE role = 'superuser'").Scan(&username)
 	if err == sql.ErrNoRows {
-		queryInsert := "INSERT INTO users(user_id,username,password,email,role) VALUES(?,?,?,?,?)"
+		queryInsert := "INSERT INTO users(user_id,username,password,email,role,department_id) VALUES(?,?,?,?,?,?)"
 		_, err := db.Exec(queryInsert,
 			uuid.NewString(),
 			cfg.SuperAdmin.Username,
 			pkg.NewHashingPassword(cfg.SuperAdmin.Password),
 			cfg.SuperAdmin.Email,
 			"superuser",
+			cfg.SuperAdmin.DepartmentId,
 		)
 
 		if err != nil {

@@ -1,4 +1,4 @@
-package auth
+package pkg
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 // type object for hold information about  jwt configuration
 type JwtConfig struct {
 	secretKey string
-	expiresAt time.Duration
+	expiresIn time.Duration
 }
 
 // type object for hold information about claims
@@ -23,10 +23,10 @@ type Claims struct {
 }
 
 // Constructor for creat jwt config
-func NewJwt(secretKey string, expiredAt time.Duration) *JwtConfig {
+func NewJwt(secretKey string) *JwtConfig {
 	return &JwtConfig{
 		secretKey: secretKey,
-		expiresAt: expiredAt,
+		expiresIn: 24 * time.Hour,
 	}
 }
 
@@ -38,7 +38,7 @@ func (c *JwtConfig) GenerateToken(userID, role, email, username string) (string,
 		Username: username,
 		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(c.expiresAt)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(c.expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

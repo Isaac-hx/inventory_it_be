@@ -1,6 +1,6 @@
 //This file contain registered user routes
 
-package user
+package auth
 
 import (
 	"inventory-it/internal/middleware"
@@ -17,26 +17,20 @@ type Routes struct {
 // Constructor routes object
 func NewRoutes(h Handler, mux *http.ServeMux, jwtConfig *pkg.JwtConfig) *Routes {
 	return &Routes{handler: h, mux: mux, jwtConfig: jwtConfig}
-
 }
+
+// Method register routes
 func (r *Routes) RegisterRoutes() {
+	pkg.PublicRoute(r.mux,
+		"POST",
+		"/login",
+		http.HandlerFunc(r.handler.Login))
 	pkg.ProtectedRoute(
-		r.mux,
-		"GET",
-		"/users",
+		r.mux, "POST",
+		"/register",
 		[]string{"superuser"},
-		http.HandlerFunc(r.handler.GetAllUsers),
+		http.HandlerFunc(r.handler.Register),
 		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser"),
-	)
-	pkg.ProtectedRoute(
-		r.mux,
-		"GET",
-		"/users/{user_id}",
-		[]string{"superuser"},
-		http.HandlerFunc(r.handler.GetUserById),
-		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser"),
-	)
+		middleware.RBACMiddleware("superuser"))
 
 }

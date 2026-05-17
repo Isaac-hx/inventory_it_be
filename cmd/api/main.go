@@ -7,9 +7,9 @@ import (
 	"inventory-it/internal/auth"
 	"inventory-it/internal/config"
 	"inventory-it/internal/database"
+	"inventory-it/internal/pkg"
 	"inventory-it/internal/user"
 	"net/http"
-	"time"
 )
 
 func main() {
@@ -24,16 +24,26 @@ func main() {
 
 	//Iniate JWT Config
 
-	jwtConfig := auth.NewJwt(cfg.Jwt.Secretkey, time.Duration(cfg.Jwt.Expiredhour))
+	jwtConfig := pkg.NewJwt(cfg.Jwt.Secretkey)
+
+	//Iniate repository auth
+	authRepo := auth.NewRepository(db)
+	authUsecase := auth.NewUsecase(authRepo, jwtConfig)
+	authHandler := auth.NewHandler(authUsecase)
 
 	//Iniate repository user
 	userRepo := user.NewRepository(db)
-	usecaseRepo := user.NewUsecase(userRepo, jwtConfig)
-	userHandler := user.NewHandler(usecaseRepo)
+	userUsecase := user.NewUsecase(userRepo)
+	userHandler := user.NewHandler(userUsecase)
 
+	//iniate router
 	mux := http.NewServeMux()
-	userRoutes := user.NewRoutes(*userHandler)
-	userRoutes.RegisterRoutes(mux)
+
+	authRoutes := auth.NewRoutes(authHandler, mux, jwtConfig)
+	authRoutes.RegisterRoutes()
+
+	userRoutes := user.NewRoutes(userHandler, mux, jwtConfig)
+	userRoutes.RegisterRoutes()
 
 	fmt.Println("server running on :2511")
 	http.ListenAndServe(":2511", mux)

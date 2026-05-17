@@ -2,70 +2,38 @@ package user
 
 import (
 	"context"
-	"errors"
-	"inventory-it/internal/auth"
-
-	"inventory-it/internal/pkg"
-
-	"github.com/google/uuid"
 )
 
 type Usecase interface {
-	Register(ctx context.Context, username, email, password, role string) error
-	Login(ctx context.Context, email, password string) (string, error)
+	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, error)
+	GetUserById(ctx context.Context, userId string) (User, error)
 }
 
 type usecase struct {
-	repo      Repository
-	jwtConfig auth.JwtConfig
+	repo Repository
 }
 
-func NewUsecase(r Repository, jwtConfig *auth.JwtConfig) Usecase {
-	return &usecase{repo: r, jwtConfig: *jwtConfig}
-}
-func (u *usecase) Register(ctx context.Context, username, email, password, role string) error {
-	//Instatiate object user
-	var userCreate User
-
-	//Validation and verification email
-	_, isEmailRegistered, err := u.repo.FindByEmail(ctx, email)
-	if err != nil {
-		return err
+func NewUsecase(r Repository) Usecase {
+	return &usecase{
+		repo: r,
 	}
-	if isEmailRegistered {
-		return errors.New("Email already registered")
-	}
-
-	//Validation and verification username
-	_, isUsernameRegistered, err := u.repo.FindByUsername(ctx, username)
-	if err != nil {
-		return err
-	}
-	if isUsernameRegistered {
-		return errors.New("Username already registered!")
-	}
-	userCreate.Email = email
-	userCreate.UserId = uuid.NewString()
-	userCreate.Password = pkg.NewHashingPassword(password)
-	userCreate.Role = role
-	userCreate.Username = username
-	return u.repo.Create(ctx, &userCreate)
 }
 
-func (u *usecase) Login(ctx context.Context, username, password string) (string, error) {
-	user, isUsernameRegistered, err := u.repo.FindByUsername(ctx, username)
-	if err != nil {
-		return "", err
+func (u *usecase) GetAllUsers(
+	ctx context.Context,
+	filter UserFilter,
+) ([]User, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 10
 	}
-	if !isUsernameRegistered {
-		return "", errors.New("Username not registered")
+
+	if filter.Page <= 0 {
+		filter.Page = 1
 	}
-	if !pkg.ComparePassword(user.Password, password) {
-		return "", errors.New("Invalid password")
-	}
-	token, err := u.jwtConfig.GenerateToken(user.UserId, user.Role, user.Email, user.Username)
-	if err != nil {
-		return "", err
-	}
-	return token, nil
+
+	return u.repo.GetAllUsers(ctx, filter)
+}
+
+func (u *usecase) GetUserById(ctx context.Context, userId string) (User, error) {
+	return u.repo.GetUserById(ctx, userId)
 }
