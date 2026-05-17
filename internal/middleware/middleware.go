@@ -50,7 +50,6 @@ func RBACMiddleware(allowedRoles ...string) func(http.Handler) http.Handler {
 				}
 			}
 			pkg.ErrorResponse(w, http.StatusUnauthorized, "Forbidden: access denied", nil)
-			return
 
 		})
 	}

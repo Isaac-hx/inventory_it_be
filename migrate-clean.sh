@@ -3,4 +3,4 @@
 DB="mysql://dimas:dimas@tcp(localhost:3306)/inventory"
 
 
-migrate -path migrations -database "$DB" up
+migrate -path migrations -database "$DB" force 0

@@ -1,0 +1,7 @@
+-- create table department
+CREATE TABLE IF NOT EXISTS departments (
+    department_id VARCHAR(36) PRIMARY KEY,
+    department_name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
