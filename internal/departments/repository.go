@@ -10,7 +10,7 @@ type Repository interface {
 	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated *Department) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
 	GetDepartmentById(ctx context.Context, departmentId string) (*Department, error)
-	GetAllDepartments(ctx context.Context) ([]*Department, error)
+	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error)
 	GetDepartmentByName(ctx context.Context, departmentName string) (*Department, error)
 }
 
@@ -34,6 +34,7 @@ func (r *repository) CreateDepartment(ctx context.Context, department *Departmen
 func (r *repository) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated *Department) error {
 	// Implementation for updating a department name by its ID in the database
 	_, err := r.db.ExecContext(ctx, `UPDATE departments SET department_name = ? WHERE department_id = ?`, departmentUpdated.DepartmentName, departmentId)
+
 	if err != nil {
 		return err
 	}
@@ -60,27 +61,65 @@ func (r *repository) GetDepartmentById(ctx context.Context, departmentId string)
 	return department, nil
 }
 
-func (r *repository) GetAllDepartments(ctx context.Context) ([]*Department, error) {
-	// Implementation for retrieving all departments from the database
-	rows, err := r.db.QueryContext(ctx, `SELECT department_id, department_name, created_at, updated_at FROM departments`)
+func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error) {
+	query := `
+		SELECT department_id, department_name, created_at, updated_at
+		FROM departments WHERE 1=1
+	`
+	args := []any{}
+
+	if filter.Search != "" {
+		query += ` AND (department_name LIKE ?) `
+		search := "%" + filter.Search + "%"
+		args = append(args, search)
+	}
+
+	switch filter.OrderBy {
+	case "username_asc":
+		query += ` ORDER BY username ASC `
+	case "username_desc":
+		query += ` ORDER BY username DESC `
+	case "created_at_asc":
+		query += ` ORDER BY created_at ASC `
+	default:
+		query += ` ORDER BY created_at DESC `
+	}
+
+	offset := (filter.Page - 1) * filter.Limit
+
+	query += ` LIMIT ? OFFSET ? `
+	args = append(args, filter.Limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var departments []*Department
+	departmentList := []*Department{}
+
 	for rows.Next() {
-		department := &Department{}
-		err := rows.Scan(&department.DepartmentId, &department.DepartmentName, &department.CreatedAt, &department.UpdatedAt)
+		var department Department
+
+		err := rows.Scan(
+			&department.DepartmentId,
+			&department.DepartmentName,
+			&department.CreatedAt,
+			&department.UpdatedAt,
+		)
 		if err != nil {
 			return nil, err
 		}
-		departments = append(departments, department)
+
+		departmentList = append(departmentList, &department)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return departments, nil
+
+	return departmentList, nil
+
 }
 
 func (r *repository) GetDepartmentByName(ctx context.Context, departmentName string) (*Department, error) {

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"inventory-it/internal/pkg"
 
@@ -47,7 +48,7 @@ func (u *usecase) Register(ctx context.Context, username, email, password, role,
 	userCreate.UserId = uuid.NewString()
 	userCreate.Password = pkg.NewHashingPassword(password)
 	userCreate.Role = role
-	userCreate.Department_id = department_id
+	userCreate.Department_id = strings.ToUpper(department_id)
 	userCreate.Username = username
 	return u.repo.Create(ctx, &userCreate)
 }

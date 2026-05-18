@@ -3,6 +3,7 @@ package departments
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type Usecase interface {
@@ -10,7 +11,7 @@ type Usecase interface {
 	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
 	GetDepartmentById(ctx context.Context, departmentId string) (*Department, error)
-	GetAllDepartments(ctx context.Context) ([]*Department, error)
+	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error)
 }
 
 type usecase struct {
@@ -25,31 +26,46 @@ func (u *usecase) CreateDepartment(ctx context.Context, departmentName string) e
 	var departmentDomain Department
 
 	//Check if department name already exists
-	_, err := u.repo.GetDepartmentByName(ctx, departmentName)
+	_, err := u.repo.GetDepartmentByName(ctx, strings.ToUpper(departmentName))
 	if err == nil {
 		return fmt.Errorf("Department with name %s already exists", departmentName)
 	}
 
 	//create department object
-	departmentDomain.DepartmentId = fmt.Sprintf(`%v-%v`, "dept", departmentName)
-	departmentDomain.DepartmentName = departmentName
+	departmentDomain.DepartmentId = fmt.Sprintf(`%v-%v`, "DEPT", strings.ToUpper(departmentName))
+
+	//edit department name to uppercase
+	departmentDomain.DepartmentName = strings.ToUpper(departmentName)
 	return u.repo.CreateDepartment(ctx, &departmentDomain)
 }
 
 func (u *usecase) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error {
 	var departementUpdated Department
-	departementUpdated.DepartmentName = departmentUpdateName
+
+	//edit updatre department to uppercase
+	departementUpdated.DepartmentName = strings.ToUpper(departmentUpdateName)
+
+	//upcase department ID
+	departmentId = strings.ToUpper(departmentId)
 	return u.repo.UpdateDepartmentNameById(ctx, departmentId, &departementUpdated)
 }
 
+// masih belum handle kalau department id tidak ditemukan, masih return success meskipun id tidak ditemukan, harusnya kalau id tidak ditemukan return error not found
+
 func (u *usecase) DeleteDepartmentById(ctx context.Context, departmentId string) error {
+	departmentId = strings.ToUpper(departmentId)
+	_, err := u.repo.GetDepartmentById(ctx, departmentId)
+	if err != nil {
+		return fmt.Errorf("Department with ID %s not found", departmentId)
+	}
 	return u.repo.DeleteDepartmentById(ctx, departmentId)
 }
 
 func (u *usecase) GetDepartmentById(ctx context.Context, departmentId string) (*Department, error) {
+	departmentId = strings.ToUpper(departmentId)
 	return u.repo.GetDepartmentById(ctx, departmentId)
 }
 
-func (u *usecase) GetAllDepartments(ctx context.Context) ([]*Department, error) {
-	return u.repo.GetAllDepartments(ctx)
+func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error) {
+	return u.repo.GetAllDepartments(ctx, filter)
 }

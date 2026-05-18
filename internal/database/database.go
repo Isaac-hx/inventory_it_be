@@ -38,9 +38,26 @@ func InitDatabase(cfg *config.Config) *sql.DB {
 
 // Seeder superuser
 func SeedSuperUser(db *sql.DB, cfg *config.Config) {
-	var username string
+	var username, departmentName string
 
-	err := db.QueryRow("SELECT username FROM users WHERE role = 'superuser'").Scan(&username)
+	err := db.QueryRow("SELECT department_name FROM departments WHERE department_name = 'IT' ").Scan(&departmentName)
+	if err == sql.ErrNoRows {
+		queryInsert := "INSERT INTO departments(department_id, department_name) VALUES(?,?)"
+		_, err := db.Exec(queryInsert,
+			cfg.SuperAdmin.DepartmentId,
+			"IT")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("✅ Department IT created!!")
+	} else if err != nil {
+		log.Fatal(err)
+	} else {
+		log.Println("ℹ️ Department IT already exists, skipping seed!!")
+	}
+
+	err = db.QueryRow("SELECT username FROM users WHERE role = 'superuser'").Scan(&username)
 	if err == sql.ErrNoRows {
 		queryInsert := "INSERT INTO users(user_id,username,password,email,role,department_id) VALUES(?,?,?,?,?,?)"
 		_, err := db.Exec(queryInsert,

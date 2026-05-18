@@ -16,13 +16,13 @@ func JWTMiddleware(jwtConfig *pkg.JwtConfig) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
 			if !strings.HasPrefix(header, "Bearer ") {
-				http.Error(w, "missing token", http.StatusUnauthorized)
+				pkg.ErrorResponse(w, http.StatusUnauthorized, "missing token", nil)
 				return
 			}
 
 			claims, err := jwtConfig.ParseToken(strings.TrimPrefix(header, "Bearer "))
 			if err != nil {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
+				pkg.ErrorResponse(w, http.StatusUnauthorized, "invalid token", nil)
 				return
 			}
 
