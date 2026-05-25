@@ -5,6 +5,8 @@ package main
 import (
 	"fmt"
 	"inventory-it/internal/auth"
+	"inventory-it/internal/brands"
+	"inventory-it/internal/categories"
 	"inventory-it/internal/config"
 	"inventory-it/internal/database"
 	"inventory-it/internal/departments"
@@ -42,6 +44,16 @@ func main() {
 	departmentUsecase := departments.NewUsecase(departmentRepo)
 	departmentHandler := departments.NewHandler(departmentUsecase)
 
+	//Iniate domain brands
+	brandRepo := brands.NewBrandRepository(db)
+	brandUsecase := brands.NewBrandUsecase(brandRepo)
+	brandHandler := brands.NewHandler(brandUsecase)
+
+	//Iniate domain categories
+	categoryRepo := categories.NewCategoryRepository(db)
+	categoryUsecase := categories.NewCategoryUsecase(categoryRepo)
+	categoryHandler := categories.NewCategoryHandler(categoryUsecase)
+
 	//iniate router
 	mux := http.NewServeMux()
 
@@ -56,6 +68,14 @@ func main() {
 	//Routes department
 	departmentRoutes := departments.NewRoutes(departmentHandler, mux, jwtConfig)
 	departmentRoutes.RegisterRoutes()
+
+	//Routes brand
+	brandRoutes := brands.NewRoutes(brandHandler, mux, jwtConfig)
+	brandRoutes.RegisterRoutes()
+
+	//Routes category
+	categoryRoutes := categories.NewRoutes(categoryHandler, mux, jwtConfig)
+	categoryRoutes.RegisterRoutes()
 
 	fmt.Println("server running on :2511")
 	http.ListenAndServe(":2511", mux)

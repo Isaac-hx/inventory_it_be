@@ -39,4 +39,14 @@ func (r *Routes) RegisterRoutes() {
 		middleware.RBACMiddleware("superuser"),
 	)
 
+	pkg.ProtectedRoute(
+		r.mux,
+		"DELETE",
+		"/users/{user_id}",
+		[]string{"superuser"},
+		http.HandlerFunc(r.handler.DeleteUserById),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser"),
+	)
+
 }

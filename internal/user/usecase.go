@@ -7,6 +7,7 @@ import (
 type Usecase interface {
 	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, error)
 	GetUserById(ctx context.Context, userId string) (User, error)
+	DeleteUserById(ctx context.Context, userId string) error
 }
 
 type usecase struct {
@@ -36,4 +37,8 @@ func (u *usecase) GetAllUsers(
 
 func (u *usecase) GetUserById(ctx context.Context, userId string) (User, error) {
 	return u.repo.GetUserById(ctx, userId)
+}
+
+func (u *usecase) DeleteUserById(ctx context.Context, userId string) error {
+	return u.repo.DeleteUserById(ctx, userId)
 }

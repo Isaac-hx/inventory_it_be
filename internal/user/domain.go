@@ -1,14 +1,17 @@
 package user
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
-	UserId       string
-	Username     string
-	Password     string
-	Email        string
-	DepartmentId string
-	Role         string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	UserId         string
+	Username       string
+	Password       string
+	Email          string
+	DepartmentId   string
+	Role           string
+	DepartmentName string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }

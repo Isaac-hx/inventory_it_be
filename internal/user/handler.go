@@ -17,6 +17,7 @@ type UserFilter struct {
 type Handler interface {
 	GetAllUsers(w http.ResponseWriter, r *http.Request)
 	GetUserById(w http.ResponseWriter, r *http.Request)
+	DeleteUserById(w http.ResponseWriter, r *http.Request)
 }
 
 // Object Handler wiring to usecase
@@ -97,4 +98,22 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", user)
+}
+
+func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
+	//get user id from query params
+	userId := r.PathValue("user_id")
+	if userId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "User ID is required", nil)
+		return
+	}
+
+	//call usecase delete user by id
+	err := h.usecase.DeleteUserById(r.Context(), userId)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Success delete user by id", nil)
 }
