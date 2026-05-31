@@ -124,7 +124,7 @@ func (r *repository) DeleteUserById(ctx context.Context, userId string) error {
 }
 
 func (r *repository) UpdateUserById(ctx context.Context, userId string, user User) error {
-	query := `UPDATE users SET username = ?, email = ?, role = ?, updated_at = ? WHERE user_id = ?`
-	_, err := r.db.ExecContext(ctx, query, user.Username, user.Email, user.Role, user.UpdatedAt, userId)
+	query := `UPDATE users SET username = ?, email = ?, role = ?, department_id = ? WHERE user_id = ?`
+	_, err := r.db.ExecContext(ctx, query, user.Username, user.Email, user.Role, user.DepartmentId, userId)
 	return err
 }

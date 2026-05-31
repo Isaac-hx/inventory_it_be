@@ -107,7 +107,11 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.usecase.Login(r.Context(), user.Username, user.Password)
 	if err != nil {
-		pkg.ErrorResponse(w, http.StatusUnauthorized, "Invalid username or password", nil)
+		if err.Error() == "invalid username or password" {
+			pkg.ErrorResponse(w, http.StatusUnauthorized, err.Error(), nil)
+			return
+		}
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Internal server error", err.Error())
 		return
 	}
 

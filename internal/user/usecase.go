@@ -2,12 +2,14 @@ package user
 
 import (
 	"context"
+	"strings"
 )
 
 type Usecase interface {
 	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, error)
 	GetUserById(ctx context.Context, userId string) (User, error)
 	DeleteUserById(ctx context.Context, userId string) error
+	UpdateUserById(ctx context.Context, userId string, user User) error
 }
 
 type usecase struct {
@@ -24,13 +26,6 @@ func (u *usecase) GetAllUsers(
 	ctx context.Context,
 	filter UserFilter,
 ) ([]User, error) {
-	if filter.Limit <= 0 {
-		filter.Limit = 10
-	}
-
-	if filter.Page <= 0 {
-		filter.Page = 1
-	}
 
 	return u.repo.GetAllUsers(ctx, filter)
 }
@@ -41,4 +36,14 @@ func (u *usecase) GetUserById(ctx context.Context, userId string) (User, error) 
 
 func (u *usecase) DeleteUserById(ctx context.Context, userId string) error {
 	return u.repo.DeleteUserById(ctx, userId)
+}
+
+func (u *usecase) UpdateUserById(ctx context.Context, userId string, user User) error {
+	var userUpdate User
+
+	userUpdate.Username = strings.ToLower(user.Username)
+	userUpdate.Email = user.Email
+	userUpdate.Role = user.Role
+	userUpdate.DepartmentId = user.DepartmentId
+	return u.repo.UpdateUserById(ctx, userId, userUpdate)
 }

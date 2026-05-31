@@ -2,6 +2,7 @@
 package user
 
 import (
+	"encoding/json"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -18,6 +19,7 @@ type Handler interface {
 	GetAllUsers(w http.ResponseWriter, r *http.Request)
 	GetUserById(w http.ResponseWriter, r *http.Request)
 	DeleteUserById(w http.ResponseWriter, r *http.Request)
+	UpdateUserById(w http.ResponseWriter, r *http.Request)
 }
 
 // Object Handler wiring to usecase
@@ -45,11 +47,11 @@ func (h *handler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	pageStr := query.Get("page")
 	orderBy := query.Get("order_by")
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
+	if err != nil || limit < 1 {
 		limit = 10
 	}
 	page, err := strconv.Atoi(pageStr)
-	if err != nil {
+	if err != nil || page < 1 {
 		page = 1
 	}
 
@@ -58,10 +60,6 @@ func (h *handler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	if role != "superuser" && role != "admin_it" && role != "user" && role != "" {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid role", "Role must be admin_it or user")
-		return
-	}
-	if limit < 1 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid limit", "Limit must be greater than 0")
 		return
 	}
 
@@ -116,4 +114,44 @@ func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkg.JSONResponse(w, http.StatusOK, "Success delete user by id", nil)
+}
+
+func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
+	//get user id from query params
+	var userUpdateRequest User
+
+	userId := r.PathValue("user_id")
+	if userId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "User ID is required", nil)
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&userUpdateRequest)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusBadRequest, err.Error(), err.Error())
+		return
+	}
+
+	if userUpdateRequest.Username == "" || userUpdateRequest.Email == "" || userUpdateRequest.Role == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Missing required field!!", nil)
+		return
+	}
+
+	if len(userUpdateRequest.Username) < 8 {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 8 characters!!", nil)
+		return
+	}
+
+	if !pkg.IsValidEmail(userUpdateRequest.Email) {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid email format!!", nil)
+		return
+	}
+
+	err = h.usecase.UpdateUserById(r.Context(), userId, userUpdateRequest)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Success update user by id", nil)
 }
