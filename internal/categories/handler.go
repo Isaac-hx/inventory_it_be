@@ -1,7 +1,9 @@
 package categories
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -98,6 +100,10 @@ func (h *handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	}
 	err = h.usecase.UpdateCategory(r.Context(), categoryId, category)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Category not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update category", err.Error())
 		return
 	}
@@ -108,6 +114,10 @@ func (h *handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	categoryId := r.PathValue("category_id")
 	err := h.usecase.DeleteCategory(r.Context(), categoryId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Category not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete category", err.Error())
 		return
 	}

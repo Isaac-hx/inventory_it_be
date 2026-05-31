@@ -23,20 +23,14 @@ func NewUsecase(repo Repository) Usecase {
 }
 
 func (u *usecase) CreateDepartment(ctx context.Context, departmentName string) error {
-	var departmentDomain Department
-
-	//Check if department name already exists
-	_, err := u.repo.GetDepartmentByName(ctx, strings.ToUpper(departmentName))
-	if err == nil {
-		return fmt.Errorf("Department with name %s already exists", departmentName)
-	}
+	var departmentData Department
 
 	//create department object
-	departmentDomain.DepartmentId = fmt.Sprintf(`%v-%v`, "DEPT", strings.ToUpper(departmentName))
+	departmentData.DepartmentId = fmt.Sprintf(`%v-%v`, "DEPT", strings.ToUpper(departmentName))
 
 	//edit department name to uppercase
-	departmentDomain.DepartmentName = strings.ToUpper(departmentName)
-	return u.repo.CreateDepartment(ctx, &departmentDomain)
+	departmentData.DepartmentName = strings.ToUpper(departmentName)
+	return u.repo.CreateDepartment(ctx, departmentData)
 }
 
 func (u *usecase) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error {
@@ -47,7 +41,7 @@ func (u *usecase) UpdateDepartmentNameById(ctx context.Context, departmentId str
 
 	//upcase department ID
 	departmentId = strings.ToUpper(departmentId)
-	return u.repo.UpdateDepartmentNameById(ctx, departmentId, &departementUpdated)
+	return u.repo.UpdateDepartmentNameById(ctx, departmentId, departementUpdated)
 }
 
 // masih belum handle kalau department id tidak ditemukan, masih return success meskipun id tidak ditemukan, harusnya kalau id tidak ditemukan return error not found

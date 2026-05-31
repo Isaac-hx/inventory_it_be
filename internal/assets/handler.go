@@ -1,7 +1,9 @@
 package assets
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -56,7 +58,10 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid purchased date format", err)
 		return
 	}
-
+	if assetDataReq.Status != "available" && assetDataReq.Status != "assigned" && assetDataReq.Status != "maintenance" && assetDataReq.Status != "retired" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status value", nil)
+		return
+	}
 	var assetData Asset
 	assetData.AssetName = assetDataReq.AssetName
 	assetData.SerialNumber = assetDataReq.SerialNumber
@@ -147,6 +152,11 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "All fields are required!!", nil)
 		return
 	}
+
+	if assetDataReq.Status != "available" && assetDataReq.Status != "assigned" && assetDataReq.Status != "maintenance" && assetDataReq.Status != "retired" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status value", nil)
+		return
+	}
 	purchasedDataConvert, err := pkg.ParseToDate(assetDataReq.PurchasedDate)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid purchased date format", err)
@@ -162,6 +172,10 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 
 	err = h.usecase.UpdateAssetById(r.Context(), assetId, assetData)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update asset!!", err)
 		return
 	}
@@ -177,6 +191,10 @@ func (h *handler) DeleteAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.usecase.DeleteAssetById(r.Context(), assetId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete asset!!", err)
 		return
 	}

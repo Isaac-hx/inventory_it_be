@@ -1,6 +1,10 @@
 package categories
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 type Usecase interface {
 	GetAllCategories(context.Context, *CategoryFilter) ([]Categories, error)
@@ -29,10 +33,14 @@ func (u *usecase) GetCategoryById(ctx context.Context, categoryId string) (Categ
 }
 
 func (u *usecase) CreateCategory(ctx context.Context, category Categories) error {
+	category.CategoryId = fmt.Sprintf("%v-%v", "CAT", strings.ToUpper(category.CategoryName))
+	category.CategoryName = strings.ToTitle(category.CategoryName)
+
 	return u.repo.CreateCategory(ctx, category)
 }
 
 func (u *usecase) UpdateCategory(ctx context.Context, categoryId string, category Categories) error {
+	category.CategoryName = strings.ToTitle(category.CategoryName)
 	return u.repo.UpdateCategory(ctx, categoryId, category)
 }
 

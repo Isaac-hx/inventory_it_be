@@ -1,9 +1,13 @@
 package brands
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 type Usecase interface {
-	GetAllBrands(context.Context, *BrandFilter) ([]Brands, error)
+	GetAllBrands(context.Context, BrandFilter) ([]Brands, error)
 	GetBrandById(context.Context, string) (Brands, error)
 	CreateBrand(context.Context, Brands) error
 	UpdateBrand(context.Context, string, Brands) error
@@ -20,7 +24,7 @@ func NewBrandUsecase(r Repository) Usecase {
 	}
 }
 
-func (u *usecase) GetAllBrands(ctx context.Context, brandFilter *BrandFilter) ([]Brands, error) {
+func (u *usecase) GetAllBrands(ctx context.Context, brandFilter BrandFilter) ([]Brands, error) {
 	return u.repo.GetAllBrands(ctx, brandFilter)
 }
 
@@ -29,10 +33,13 @@ func (u *usecase) GetBrandById(ctx context.Context, brandId string) (Brands, err
 }
 
 func (u *usecase) CreateBrand(ctx context.Context, brand Brands) error {
+	brand.BrandId = fmt.Sprintf("%v-%v", "BRAND", brand.BrandName)
+	brand.BrandName = strings.ToTitle(brand.BrandName)
 	return u.repo.CreateBrand(ctx, brand)
 }
 
 func (u *usecase) UpdateBrand(ctx context.Context, brandId string, brand Brands) error {
+	brand.BrandName = strings.ToTitle(brand.BrandName)
 	return u.repo.UpdateBrand(ctx, brandId, brand)
 }
 

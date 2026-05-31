@@ -1,7 +1,9 @@
 package brands
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -32,7 +34,7 @@ func NewHandler(u Usecase) Handler {
 }
 
 func (h *handler) GetAllBrands(w http.ResponseWriter, r *http.Request) {
-	var brandFilter *BrandFilter
+	var brandFilter BrandFilter
 
 	//get query params
 	query := r.URL.Query()
@@ -52,7 +54,6 @@ func (h *handler) GetAllBrands(w http.ResponseWriter, r *http.Request) {
 	if orderBy != "asc" && orderBy != "desc" {
 		orderBy = "asc"
 	}
-	brandFilter = &BrandFilter{}
 	brandFilter.Search = search
 	brandFilter.Limit = limit
 	brandFilter.Page = page
@@ -112,6 +113,10 @@ func (h *handler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
 
 	err = h.usecase.UpdateBrand(r.Context(), brandId, brand)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Brand not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update brand", err.Error())
 		return
 	}
@@ -124,6 +129,10 @@ func (h *handler) DeleteBrand(w http.ResponseWriter, r *http.Request) {
 	brandId := r.PathValue("brand_id")
 	err := h.usecase.DeleteBrand(r.Context(), brandId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Brand not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete brand", err.Error())
 		return
 	}

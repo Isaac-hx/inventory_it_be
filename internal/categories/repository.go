@@ -84,13 +84,35 @@ func (r *repository) CreateCategory(ctx context.Context, category Categories) er
 }
 
 func (r *repository) UpdateCategory(ctx context.Context, categoryId string, category Categories) error {
-	query := `UPDATE categories SET category_name = ?, updated_at = ? WHERE category_id = ?`
-	_, err := r.db.ExecContext(ctx, query, category.CategoryName, category.UpdatedAt, categoryId)
-	return err
+	query := `UPDATE categories SET category_name = ? WHERE category_id = ?`
+	result, err := r.db.ExecContext(ctx, query, category.CategoryName, categoryId)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (r *repository) DeleteCategory(ctx context.Context, categoryId string) error {
 	query := `DELETE FROM categories WHERE category_id = ?`
-	_, err := r.db.ExecContext(ctx, query, categoryId)
-	return err
+	result, err := r.db.ExecContext(ctx, query, categoryId)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

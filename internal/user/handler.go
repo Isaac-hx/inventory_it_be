@@ -2,7 +2,9 @@
 package user
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -109,6 +111,11 @@ func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
 	//call usecase delete user by id
 	err := h.usecase.DeleteUserById(r.Context(), userId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "User not found", nil)
+			return
+		}
+
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}
@@ -149,6 +156,10 @@ func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
 
 	err = h.usecase.UpdateUserById(r.Context(), userId, userUpdateRequest)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "User not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 type Repository interface {
-	GetAllBrands(context.Context, *BrandFilter) ([]Brands, error)
+	GetAllBrands(context.Context, BrandFilter) ([]Brands, error)
 	GetBrandById(ctx context.Context, brandId string) (Brands, error)
 	CreateBrand(ctx context.Context, brand Brands) error
 	UpdateBrand(ctx context.Context, brandId string, brand Brands) error
@@ -23,7 +23,7 @@ func NewBrandRepository(db *sql.DB) Repository {
 	}
 }
 
-func (r *repository) GetAllBrands(ctx context.Context, brandFilter *BrandFilter) ([]Brands, error) {
+func (r *repository) GetAllBrands(ctx context.Context, brandFilter BrandFilter) ([]Brands, error) {
 	query := `SELECT brand_id, brand_name, created_at, updated_at FROM brands WHERE 1=1`
 	args := []any{}
 
@@ -82,13 +82,33 @@ func (r *repository) CreateBrand(ctx context.Context, brand Brands) error {
 }
 
 func (r *repository) UpdateBrand(ctx context.Context, brandId string, brand Brands) error {
-	query := `UPDATE brands SET brand_name = ?, updated_at = ? WHERE brand_id = ?`
-	_, err := r.db.ExecContext(ctx, query, brand.BrandName, brand.UpdatedAt, brandId)
-	return err
+	query := `UPDATE brands SET brand_name = ? WHERE brand_id = ?`
+	result, err := r.db.ExecContext(ctx, query, brand.BrandName, brandId)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *repository) DeleteBrand(ctx context.Context, brandId string) error {
 	query := `DELETE FROM brands WHERE brand_id = ?`
-	_, err := r.db.ExecContext(ctx, query, brandId)
-	return err
+	result, err := r.db.ExecContext(ctx, query, brandId)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

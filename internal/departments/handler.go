@@ -1,7 +1,9 @@
 package departments
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
@@ -77,6 +79,10 @@ func (h *handler) UpdateDepartmentNameById(w http.ResponseWriter, r *http.Reques
 
 	err = h.usecase.UpdateDepartmentNameById(r.Context(), departmentId, departmentReq.DepartmentName)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Department not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update department name!!", err)
 		return
 	}
@@ -95,6 +101,10 @@ func (h *handler) DeleteDepartmentById(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.usecase.DeleteDepartmentById(r.Context(), departmentId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Department not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete department!!", err)
 		return
 	}

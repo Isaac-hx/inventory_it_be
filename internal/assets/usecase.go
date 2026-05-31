@@ -2,7 +2,9 @@ package assets
 
 import (
 	"context"
-	"time"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 type Usecase interface {
@@ -32,19 +34,16 @@ func (u *usecase) GetAssetById(ctx context.Context, assetId string) (Asset, erro
 }
 
 func (u *usecase) CreateAsset(ctx context.Context, asset Asset) error {
-	asset.CreatedAt = time.Now()
-	asset.UpdatedAt = time.Now()
-
-	if asset.Status == "" {
-		asset.Status = "available"
-	}
-
+	asset.AssetId = uuid.New().String()
+	asset.AssetName = strings.ToTitle(asset.AssetName)
+	asset.SerialNumber = strings.ToUpper(asset.SerialNumber)
 	return u.repo.CreateAsset(ctx, asset)
 }
 
 func (u *usecase) UpdateAssetById(ctx context.Context, assetId string, asset Asset) error {
-	asset.UpdatedAt = time.Now()
-
+	asset.AssetName = strings.ToTitle(asset.AssetName)
+	asset.AssetName = strings.ToTitle(asset.AssetName)
+	asset.SerialNumber = strings.ToUpper(asset.SerialNumber)
 	return u.repo.UpdateAssetById(ctx, assetId, asset)
 }
 

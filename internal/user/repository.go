@@ -119,12 +119,36 @@ func (r *repository) GetUserById(ctx context.Context, userId string) (User, erro
 
 func (r *repository) DeleteUserById(ctx context.Context, userId string) error {
 	query := `DELETE FROM user WHERE user_id = ?`
-	_, err := r.db.ExecContext(ctx, query, userId)
-	return err
-}
+	result, err := r.db.ExecContext(ctx, query, userId)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
 
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
 func (r *repository) UpdateUserById(ctx context.Context, userId string, user User) error {
 	query := `UPDATE users SET username = ?, email = ?, role = ?, department_id = ? WHERE user_id = ?`
-	_, err := r.db.ExecContext(ctx, query, user.Username, user.Email, user.Role, user.DepartmentId, userId)
-	return err
+	result, err := r.db.ExecContext(ctx, query, user.Username, user.Email, user.Role, user.DepartmentId, userId)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

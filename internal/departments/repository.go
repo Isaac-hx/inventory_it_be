@@ -6,8 +6,8 @@ import (
 )
 
 type Repository interface {
-	CreateDepartment(ctx context.Context, department *Department) error
-	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated *Department) error
+	CreateDepartment(ctx context.Context, department Department) error
+	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated Department) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
 	GetDepartmentById(ctx context.Context, departmentId string) (*Department, error)
 	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error)
@@ -22,7 +22,7 @@ func NewRepository(db *sql.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) CreateDepartment(ctx context.Context, department *Department) error {
+func (r *repository) CreateDepartment(ctx context.Context, department Department) error {
 	// Implementation for creating a department in the database
 	_, err := r.db.ExecContext(ctx, `INSERT INTO departments (department_id, department_name) VALUES (?, ?)`, department.DepartmentId, department.DepartmentName)
 	if err != nil {
@@ -31,21 +31,38 @@ func (r *repository) CreateDepartment(ctx context.Context, department *Departmen
 	return nil
 }
 
-func (r *repository) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated *Department) error {
+func (r *repository) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated Department) error {
 	// Implementation for updating a department name by its ID in the database
-	_, err := r.db.ExecContext(ctx, `UPDATE departments SET department_name = ? WHERE department_id = ?`, departmentUpdated.DepartmentName, departmentId)
+	result, err := r.db.ExecContext(ctx, `UPDATE departments SET department_name = ? WHERE department_id = ?`, departmentUpdated.DepartmentName, departmentId)
 
 	if err != nil {
 		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
 	return nil
 }
 
 func (r *repository) DeleteDepartmentById(ctx context.Context, departmentId string) error {
 	// Implementation for deleting a department by its ID from the database
-	_, err := r.db.ExecContext(ctx, `DELETE FROM departments WHERE department_id = ?`, departmentId)
+	result, err := r.db.ExecContext(ctx, `DELETE FROM departments WHERE department_id = ?`, departmentId)
 	if err != nil {
 		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }
