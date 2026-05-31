@@ -11,7 +11,7 @@ import (
 )
 
 type Usecase interface {
-	Register(ctx context.Context, username, email, password, role, department_id string) error
+	Register(ctx context.Context, user User) error
 	Login(ctx context.Context, email, password string) (string, error)
 }
 
@@ -23,12 +23,12 @@ type usecase struct {
 func NewUsecase(r Repository, jwtConfig *pkg.JwtConfig) Usecase {
 	return &usecase{repo: r, jwtConfig: *jwtConfig}
 }
-func (u *usecase) Register(ctx context.Context, username, email, password, role, department_id string) error {
+func (u *usecase) Register(ctx context.Context, user User) error {
 	//Instatiate object user
 	var userCreate User
 
 	//Validation and verification email
-	_, isEmailRegistered, err := u.repo.FindByEmail(ctx, email)
+	_, isEmailRegistered, err := u.repo.FindByEmail(ctx, user.Email)
 	if err != nil {
 		return err
 	}
@@ -37,34 +37,49 @@ func (u *usecase) Register(ctx context.Context, username, email, password, role,
 	}
 
 	//Validation and verification username
-	_, isUsernameRegistered, err := u.repo.FindByUsername(ctx, username)
+	_, isUsernameRegistered, err := u.repo.FindByUsername(ctx, user.Username)
 	if err != nil {
 		return err
 	}
 	if isUsernameRegistered {
 		return errors.New("Username already registered!")
 	}
-	userCreate.Email = email
+	userCreate.Email = user.Email
 	userCreate.UserId = uuid.NewString()
-	userCreate.Password = pkg.NewHashingPassword(password)
-	userCreate.Role = role
-	userCreate.Department_id = strings.ToUpper(department_id)
-	userCreate.Username = username
+	userCreate.Password = pkg.NewHashingPassword(user.Password)
+	userCreate.Role = user.Role
+	userCreate.Department_id = strings.ToUpper(user.Department_id)
+	userCreate.Username = user.Username
 	return u.repo.Create(ctx, &userCreate)
 }
 
-func (u *usecase) Login(ctx context.Context, username, password string) (string, error) {
-	user, isUsernameRegistered, err := u.repo.FindByUsername(ctx, username)
-	if err != nil {
-		return "", err
+func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (string, error) {
+	var userRegistered User
+	var isRegistered bool
+	if !pkg.IsValidEmail(usernameOrEmail) {
+		user, isRegisteredEmail, err := u.repo.FindByEmail(ctx, usernameOrEmail)
+		if err != nil {
+			return "", err
+		}
+		isRegistered = isRegisteredEmail
+		userRegistered = user
+	} else {
+		user, isRegisteredUsername, err := u.repo.FindByUsername(ctx, usernameOrEmail)
+		if err != nil {
+			return "", err
+		}
+		isRegistered = isRegisteredUsername
+		userRegistered = user
+
 	}
-	if !isUsernameRegistered {
-		return "", errors.New("Username not registered")
+
+	if !isRegistered {
+		return "", errors.New("invalid username or password")
 	}
-	if !pkg.ComparePassword(user.Password, password) {
-		return "", errors.New("Invalid password")
+	if !pkg.ComparePassword(userRegistered.Password, password) {
+		return "", errors.New("invalid username or password")
 	}
-	token, err := u.jwtConfig.GenerateToken(user.UserId, user.Role, user.Email, user.Username)
+	token, err := u.jwtConfig.GenerateToken(userRegistered.UserId, userRegistered.Role, userRegistered.Email, userRegistered.Username)
 	if err != nil {
 		return "", err
 	}

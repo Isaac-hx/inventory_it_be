@@ -3,6 +3,8 @@ package pkg
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"time"
 )
 
 type Response struct {
@@ -32,4 +34,19 @@ func ErrorResponse(w http.ResponseWriter, statusCode int, message string, err in
 		Error:   err,
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func ParseToDate(dateStr string) (time.Time, error) {
+	layout := "2006-01-02"
+	parsedDate, err := time.Parse(layout, dateStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return parsedDate, nil
+}
+
+func IsValidEmail(email string) bool {
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	return emailRegex.MatchString(email)
 }

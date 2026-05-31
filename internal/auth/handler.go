@@ -52,20 +52,32 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Password must be at least 8 characters!!", nil)
 		return
 	}
-
-	err = h.usecase.Register(
-		r.Context(),
-		user.Username,
-		user.Email,
-		user.Password,
-		user.Role,
-		user.Department_id,
-	)
-	if err != nil {
-		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+	if !pkg.IsValidEmail(user.Email) {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid email format!!", nil)
 		return
 	}
 
+	//assign to domain
+	userDomain := User{
+		Username:      user.Username,
+		Email:         user.Email,
+		Password:      user.Password,
+		Role:          user.Role,
+		Department_id: user.Department_id,
+	}
+
+	err = h.usecase.Register(
+		r.Context(),
+		userDomain,
+	)
+	if err != nil {
+		if err.Error() == "Email already registered" || err.Error() == "Username already registered!" {
+			pkg.ErrorResponse(w, http.StatusConflict, err.Error(), nil)
+			return
+		}
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
 	pkg.JSONResponse(w, http.StatusCreated, "User created", nil)
 }
 
