@@ -76,8 +76,8 @@ func (r *repository) GetBrandById(ctx context.Context, brandId string) (Brands, 
 }
 
 func (r *repository) CreateBrand(ctx context.Context, brand Brands) error {
-	query := `INSERT INTO brands (brand_id, brand_name, created_at, updated_at) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, brand.BrandId, brand.BrandName, brand.CreatedAt, brand.UpdatedAt)
+	query := `INSERT INTO brands (brand_id, brand_name) VALUES (?, ?)`
+	_, err := r.db.ExecContext(ctx, query, brand.BrandId, brand.BrandName)
 	return err
 }
 

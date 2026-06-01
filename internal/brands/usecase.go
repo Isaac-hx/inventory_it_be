@@ -3,6 +3,7 @@ package brands
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -33,13 +34,14 @@ func (u *usecase) GetBrandById(ctx context.Context, brandId string) (Brands, err
 }
 
 func (u *usecase) CreateBrand(ctx context.Context, brand Brands) error {
-	brand.BrandId = fmt.Sprintf("%v-%v", "BRAND", brand.BrandName)
+	brand.BrandId = fmt.Sprintf("%v-%v", "BRAND", strings.ToUpper(brand.BrandName))
 	brand.BrandName = strings.ToTitle(brand.BrandName)
 	return u.repo.CreateBrand(ctx, brand)
 }
 
 func (u *usecase) UpdateBrand(ctx context.Context, brandId string, brand Brands) error {
 	brand.BrandName = strings.ToTitle(brand.BrandName)
+	log.Println(brand)
 	return u.repo.UpdateBrand(ctx, brandId, brand)
 }
 

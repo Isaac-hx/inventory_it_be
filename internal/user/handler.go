@@ -10,6 +10,12 @@ import (
 	"strconv"
 )
 
+type userRequest struct {
+	Username      string `json:"username"`
+	Email         string `json:"email"`
+	Role          string `json:"role"`
+	Department_id string `json:"department_id"`
+}
 type UserFilter struct {
 	Role    string
 	Search  string
@@ -93,6 +99,10 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	//call usecase get user by id
 	user, err := h.usecase.GetUserById(r.Context(), userId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "User not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}
@@ -125,7 +135,7 @@ func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
 	//get user id from query params
-	var userUpdateRequest User
+	var userUpdateRequest userRequest
 
 	userId := r.PathValue("user_id")
 	if userId == "" {
@@ -153,8 +163,16 @@ func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid email format!!", nil)
 		return
 	}
-
-	err = h.usecase.UpdateUserById(r.Context(), userId, userUpdateRequest)
+	if userUpdateRequest.Role != "superuser" && userUpdateRequest.Role != "admin_it" && userUpdateRequest.Role != "user" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid role", "Role must be admin_it or user")
+		return
+	}
+	var updatedUser User
+	updatedUser.Username = userUpdateRequest.Username
+	updatedUser.Email = userUpdateRequest.Email
+	updatedUser.Role = userUpdateRequest.Role
+	updatedUser.DepartmentId = userUpdateRequest.Department_id
+	err = h.usecase.UpdateUserById(r.Context(), userId, updatedUser)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "User not found", nil)

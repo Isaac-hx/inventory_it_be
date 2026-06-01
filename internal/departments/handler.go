@@ -119,6 +119,10 @@ func (h *handler) GetDepartmentById(w http.ResponseWriter, r *http.Request) {
 	}
 	department, err := h.usecase.GetDepartmentById(r.Context(), departmentId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Department not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get department!!", err)
 		return
 	}

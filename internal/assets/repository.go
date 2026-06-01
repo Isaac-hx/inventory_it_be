@@ -11,6 +11,7 @@ type Repository interface {
 	GetAssetById(context.Context, string) (Asset, error)
 	DeleteAssetById(context.Context, string) error
 	UpdateAssetById(context.Context, string, Asset) error
+	UpdateAssetStatusById(context.Context, string, AssetStatus) error
 }
 
 type repository struct {
@@ -261,6 +262,36 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 		asset.BrandId,
 		asset.CategoryId,
 		asset.UpdatedAt,
+		assetId,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+func (r *repository) UpdateAssetStatusById(ctx context.Context, assetId string, status AssetStatus) error {
+	query := `
+		UPDATE assets
+		SET
+			status = ?,
+		WHERE asset_id = ?
+	`
+
+	result, err := r.db.ExecContext(
+		ctx,
+		query,
+		status,
 		assetId,
 	)
 

@@ -99,26 +99,41 @@ func (r *repository) GetAllUsers(ctx context.Context, filter UserFilter) ([]User
 }
 
 func (r *repository) GetUserById(ctx context.Context, userId string) (User, error) {
-	query := `SELECT user_id, username, email, role,  created_at,department_id, updated_at ,departments.department_name FROM users LEFT JOIN departments ON users.department_id = departments.department_id WHERE user_id = ?`
+	query := `
+	SELECT
+		u.user_id,
+		u.username,
+		u.email,
+		u.role,
+		u.department_id,
+		d.department_name,
+		u.created_at,
+		u.updated_at
+	FROM users u
+	LEFT JOIN departments d
+		ON u.department_id = d.department_id
+	WHERE u.user_id = ?`
+
 	var user User
 	err := r.db.QueryRowContext(ctx, query, userId).Scan(
 		&user.UserId,
 		&user.Username,
 		&user.Email,
 		&user.Role,
-		&user.CreatedAt,
 		&user.DepartmentId,
-		&user.UpdatedAt,
 		&user.DepartmentName,
+		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
 	if err != nil {
 		return User{}, err
 	}
+
 	return user, nil
 }
 
 func (r *repository) DeleteUserById(ctx context.Context, userId string) error {
-	query := `DELETE FROM user WHERE user_id = ?`
+	query := `DELETE FROM users WHERE user_id = ?`
 	result, err := r.db.ExecContext(ctx, query, userId)
 	if err != nil {
 		return err

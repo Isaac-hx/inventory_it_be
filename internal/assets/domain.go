@@ -2,12 +2,20 @@ package assets
 
 import "time"
 
+type AssetStatus string
+
+const (
+	Available   AssetStatus = "available"
+	Maintenance AssetStatus = "maintenance"
+	Retired     AssetStatus = "retired"
+)
+
 type Asset struct {
 	AssetId       string
 	AssetName     string
 	SerialNumber  string
 	PurchasedDate time.Time
-	Status        string
+	Status        AssetStatus
 	BrandId       string
 	CategoryId    string
 	BrandName     string

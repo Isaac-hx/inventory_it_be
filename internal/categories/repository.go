@@ -78,8 +78,8 @@ func (r *repository) GetCategoryById(ctx context.Context, categoryId string) (Ca
 }
 
 func (r *repository) CreateCategory(ctx context.Context, category Categories) error {
-	query := `INSERT INTO categories (category_id, category_name, created_at, updated_at) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecContext(ctx, query, category.CategoryId, category.CategoryName, category.CreatedAt, category.UpdatedAt)
+	query := `INSERT INTO categories (category_id, category_name) VALUES (?, ?)`
+	_, err := r.db.ExecContext(ctx, query, category.CategoryId, category.CategoryName)
 	return err
 }
 

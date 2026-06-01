@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 
 	"inventory-it/internal/pkg"
@@ -56,32 +57,44 @@ func (u *usecase) Register(ctx context.Context, user User) error {
 func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (string, error) {
 	var userRegistered User
 	var isRegistered bool
-	if !pkg.IsValidEmail(usernameOrEmail) {
-		user, isRegisteredEmail, err := u.repo.FindByEmail(ctx, usernameOrEmail)
+
+	if pkg.IsValidEmail(usernameOrEmail) {
+		user, registered, err := u.repo.FindByEmail(ctx, usernameOrEmail)
 		if err != nil {
 			return "", err
 		}
-		isRegistered = isRegisteredEmail
+		log.Println("user", user)
+		isRegistered = registered
 		userRegistered = user
 	} else {
-		user, isRegisteredUsername, err := u.repo.FindByUsername(ctx, usernameOrEmail)
+		user, registered, err := u.repo.FindByUsername(ctx, usernameOrEmail)
 		if err != nil {
 			return "", err
 		}
-		isRegistered = isRegisteredUsername
-		userRegistered = user
+		log.Println("user", user)
 
+		isRegistered = registered
+		userRegistered = user
 	}
 
 	if !isRegistered {
 		return "", errors.New("invalid username or password")
 	}
+
 	if !pkg.ComparePassword(userRegistered.Password, password) {
 		return "", errors.New("invalid username or password")
 	}
-	token, err := u.jwtConfig.GenerateToken(userRegistered.UserId, userRegistered.Role, userRegistered.Email, userRegistered.Username)
+
+	token, err := u.jwtConfig.GenerateToken(
+		userRegistered.UserId,
+		userRegistered.Role,
+		userRegistered.Email,
+		userRegistered.Username,
+	)
+
 	if err != nil {
 		return "", err
 	}
+
 	return token, nil
 }

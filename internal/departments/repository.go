@@ -9,9 +9,9 @@ type Repository interface {
 	CreateDepartment(ctx context.Context, department Department) error
 	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated Department) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
-	GetDepartmentById(ctx context.Context, departmentId string) (*Department, error)
-	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error)
-	GetDepartmentByName(ctx context.Context, departmentName string) (*Department, error)
+	GetDepartmentById(ctx context.Context, departmentId string) (Department, error)
+	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error)
+	GetDepartmentByName(ctx context.Context, departmentName string) (Department, error)
 }
 
 type repository struct {
@@ -67,39 +67,54 @@ func (r *repository) DeleteDepartmentById(ctx context.Context, departmentId stri
 	return nil
 }
 
-func (r *repository) GetDepartmentById(ctx context.Context, departmentId string) (*Department, error) {
+func (r *repository) GetDepartmentById(ctx context.Context, departmentId string) (Department, error) {
 	// Implementation for retrieving a department by its ID from the database
 	row := r.db.QueryRowContext(ctx, `SELECT department_id, department_name, created_at, updated_at FROM departments WHERE department_id = ?`, departmentId)
-	department := &Department{}
+	department := Department{}
 	err := row.Scan(&department.DepartmentId, &department.DepartmentName, &department.CreatedAt, &department.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return Department{}, err
 	}
 	return department, nil
 }
 
-func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error) {
+func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error) {
+
 	query := `
-		SELECT department_id, department_name, created_at, updated_at
-		FROM departments WHERE 1=1
+		SELECT 
+			department_id, 
+			department_name, 
+			created_at, 
+			updated_at
+		FROM departments
+		WHERE 1=1
 	`
+
 	args := []any{}
 
 	if filter.Search != "" {
-		query += ` AND (department_name LIKE ?) `
+		query += ` AND department_name LIKE ? `
 		search := "%" + filter.Search + "%"
 		args = append(args, search)
 	}
 
 	switch filter.OrderBy {
-	case "username_asc":
-		query += ` ORDER BY username ASC `
-	case "username_desc":
-		query += ` ORDER BY username DESC `
+	case "department_name_asc":
+		query += ` ORDER BY department_name ASC `
+	case "department_name_desc":
+		query += ` ORDER BY department_name DESC `
 	case "created_at_asc":
 		query += ` ORDER BY created_at ASC `
 	default:
 		query += ` ORDER BY created_at DESC `
+	}
+
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+
+	if filter.Limit <= 0 {
+		filter.Limit = 10
 	}
 
 	offset := (filter.Page - 1) * filter.Limit
@@ -113,7 +128,7 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 	}
 	defer rows.Close()
 
-	departmentList := []*Department{}
+	departmentList := []Department{}
 
 	for rows.Next() {
 		var department Department
@@ -128,7 +143,7 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 			return nil, err
 		}
 
-		departmentList = append(departmentList, &department)
+		departmentList = append(departmentList, department)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -136,15 +151,14 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 	}
 
 	return departmentList, nil
-
 }
 
-func (r *repository) GetDepartmentByName(ctx context.Context, departmentName string) (*Department, error) {
+func (r *repository) GetDepartmentByName(ctx context.Context, departmentName string) (Department, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT department_id, department_name, created_at, updated_at FROM departments WHERE department_name = ?`, departmentName)
-	department := &Department{}
+	department := Department{}
 	err := row.Scan(&department.DepartmentId, &department.DepartmentName, &department.CreatedAt, &department.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return Department{}, err
 	}
 	return department, nil
 }

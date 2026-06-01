@@ -9,6 +9,9 @@ import (
 	"strconv"
 )
 
+type CategoriesReq struct {
+	CategoryName string `json:"category_name"`
+}
 type CategoryFilter struct {
 	Search  string
 	Limit   int
@@ -70,19 +73,29 @@ func (h *handler) GetCategoryById(w http.ResponseWriter, r *http.Request) {
 	categoryId := r.PathValue("category_id")
 	category, err := h.usecase.GetCategoryById(r.Context(), categoryId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Category not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get category", err.Error())
 		return
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Success get category", category)
 }
 func (h *handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	var category Categories
+	var category CategoriesReq
 	err := json.NewDecoder(r.Body).Decode(&category)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
-	err = h.usecase.CreateCategory(r.Context(), category)
+	if category.CategoryName == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Category name is required", nil)
+		return
+	}
+	var createCategory Categories
+	createCategory.CategoryName = category.CategoryName
+	err = h.usecase.CreateCategory(r.Context(), createCategory)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create category", err.Error())
 		return
@@ -92,13 +105,19 @@ func (h *handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	categoryId := r.PathValue("category_id")
-	var category Categories
+	var category CategoriesReq
 	err := json.NewDecoder(r.Body).Decode(&category)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
-	err = h.usecase.UpdateCategory(r.Context(), categoryId, category)
+	if category.CategoryName == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Category name is required", nil)
+		return
+	}
+	var updateCategory Categories
+	updateCategory.CategoryName = category.CategoryName
+	err = h.usecase.UpdateCategory(r.Context(), categoryId, updateCategory)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "Category not found", nil)

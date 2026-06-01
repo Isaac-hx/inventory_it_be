@@ -66,7 +66,7 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 	assetData.AssetName = assetDataReq.AssetName
 	assetData.SerialNumber = assetDataReq.SerialNumber
 	assetData.PurchasedDate = purchasedDataConvert
-	assetData.Status = assetDataReq.Status
+	assetData.Status = AssetStatus(assetDataReq.Status)
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 
@@ -166,7 +166,7 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 	assetData.AssetName = assetDataReq.AssetName
 	assetData.SerialNumber = assetDataReq.SerialNumber
 	assetData.PurchasedDate = purchasedDataConvert
-	assetData.Status = assetDataReq.Status
+	assetData.Status = AssetStatus(assetDataReq.Status)
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 

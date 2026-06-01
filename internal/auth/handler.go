@@ -57,6 +57,11 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.Role != "admin_it" && user.Role != "user" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid role", "Role must be admin_it or user")
+		return
+	}
+
 	//assign to domain
 	userDomain := User{
 		Username:      user.Username,
@@ -82,7 +87,10 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
-	var user userRequest
+	var user struct {
+		UsernameOrEmail string `json:"username_or_email"`
+		Password        string `json:"password"`
+	}
 
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -90,12 +98,12 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Username == "" || user.Password == "" {
+	if user.UsernameOrEmail == "" || user.Password == "" {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Missing required field!!", nil)
 		return
 	}
 
-	if len(user.Username) < 5 {
+	if len(user.UsernameOrEmail) < 5 {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 5 characters!!", nil)
 		return
 	}
@@ -105,7 +113,7 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.usecase.Login(r.Context(), user.Username, user.Password)
+	token, err := h.usecase.Login(r.Context(), user.UsernameOrEmail, user.Password)
 	if err != nil {
 		if err.Error() == "invalid username or password" {
 			pkg.ErrorResponse(w, http.StatusUnauthorized, err.Error(), nil)

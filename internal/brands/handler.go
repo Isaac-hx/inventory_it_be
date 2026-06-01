@@ -9,6 +9,9 @@ import (
 	"strconv"
 )
 
+type BrandReq struct {
+	BrandName string `json:"brand_name"`
+}
 type BrandFilter struct {
 	Search  string
 	Limit   int
@@ -74,6 +77,10 @@ func (h *handler) GetBrandById(w http.ResponseWriter, r *http.Request) {
 
 	brand, err := h.usecase.GetBrandById(r.Context(), brandId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Brand not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get brand", err.Error())
 		return
 	}
@@ -83,14 +90,22 @@ func (h *handler) GetBrandById(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) CreateBrand(w http.ResponseWriter, r *http.Request) {
 	//parse request body to struct brand
-	var brand Brands
+	var brand BrandReq
 	err := json.NewDecoder(r.Body).Decode(&brand)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
 
-	err = h.usecase.CreateBrand(r.Context(), brand)
+	if brand.BrandName == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Brand name is required", nil)
+		return
+	}
+
+	var createBrand Brands
+	createBrand.BrandName = brand.BrandName
+
+	err = h.usecase.CreateBrand(r.Context(), createBrand)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create brand", err.Error())
 		return
@@ -104,14 +119,21 @@ func (h *handler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
 	brandId := r.PathValue("brand_id")
 
 	//parse request body to struct brand
-	var brand Brands
+	var brand BrandReq
 	err := json.NewDecoder(r.Body).Decode(&brand)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
 		return
 	}
+	if brand.BrandName == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Brand name is required", nil)
+		return
+	}
 
-	err = h.usecase.UpdateBrand(r.Context(), brandId, brand)
+	var updateBrand Brands
+	updateBrand.BrandName = brand.BrandName
+
+	err = h.usecase.UpdateBrand(r.Context(), brandId, updateBrand)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "Brand not found", nil)

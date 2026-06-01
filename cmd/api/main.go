@@ -4,12 +4,14 @@ package main
 
 import (
 	"fmt"
+	"inventory-it/internal/assets"
 	"inventory-it/internal/auth"
 	"inventory-it/internal/brands"
 	"inventory-it/internal/categories"
 	"inventory-it/internal/config"
 	"inventory-it/internal/database"
 	"inventory-it/internal/departments"
+	"inventory-it/internal/maintenances"
 	"inventory-it/internal/pkg"
 	"inventory-it/internal/user"
 	"net/http"
@@ -54,6 +56,15 @@ func main() {
 	categoryUsecase := categories.NewCategoryUsecase(categoryRepo)
 	categoryHandler := categories.NewCategoryHandler(categoryUsecase)
 
+	//Iniate domain assets
+	assetRepo := assets.NewAssetRepository(db)
+	assetUsecase := assets.NewAssetUsecase(assetRepo)
+	assetHandler := assets.NewAssetHandler(assetUsecase)
+	//Iniate domain maintenances
+	maintenanceRepo := maintenances.NewMaintenanceRepository(db)
+	maintenanceUsecase := maintenances.NewMaintenanceUsecase(db, maintenanceRepo, assetRepo)
+	maintenanceHandler := maintenances.NewMaintenanceHandler(maintenanceUsecase)
+
 	//iniate router
 	mux := http.NewServeMux()
 
@@ -77,6 +88,13 @@ func main() {
 	categoryRoutes := categories.NewRoutes(categoryHandler, mux, jwtConfig)
 	categoryRoutes.RegisterRoutes()
 
+	//Routes asset
+	assetRoutes := assets.NewRoutes(assetHandler, mux, jwtConfig)
+	assetRoutes.RegisterRoutes()
+
+	//Routes maintenance
+	maintenanceRoutes := maintenances.NewRoutes(maintenanceHandler, mux, jwtConfig)
+	maintenanceRoutes.RegisterRoutes()
 	fmt.Println("server running on :2511")
 	http.ListenAndServe(":2511", mux)
 }

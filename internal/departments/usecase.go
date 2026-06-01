@@ -10,8 +10,8 @@ type Usecase interface {
 	CreateDepartment(ctx context.Context, departmentName string) error
 	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
-	GetDepartmentById(ctx context.Context, departmentId string) (*Department, error)
-	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error)
+	GetDepartmentById(ctx context.Context, departmentId string) (Department, error)
+	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error)
 }
 
 type usecase struct {
@@ -50,16 +50,16 @@ func (u *usecase) DeleteDepartmentById(ctx context.Context, departmentId string)
 	departmentId = strings.ToUpper(departmentId)
 	_, err := u.repo.GetDepartmentById(ctx, departmentId)
 	if err != nil {
-		return fmt.Errorf("Department with ID %s not found", departmentId)
+		return err
 	}
 	return u.repo.DeleteDepartmentById(ctx, departmentId)
 }
 
-func (u *usecase) GetDepartmentById(ctx context.Context, departmentId string) (*Department, error) {
+func (u *usecase) GetDepartmentById(ctx context.Context, departmentId string) (Department, error) {
 	departmentId = strings.ToUpper(departmentId)
 	return u.repo.GetDepartmentById(ctx, departmentId)
 }
 
-func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]*Department, error) {
+func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error) {
 	return u.repo.GetAllDepartments(ctx, filter)
 }
