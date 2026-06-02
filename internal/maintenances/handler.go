@@ -82,7 +82,7 @@ func (h *handler) GetAllMaintenances(w http.ResponseWriter, r *http.Request) {
 	// Call usecase to get maintenances
 	maintenances, err := h.usecase.GetAllMaintenances(r.Context(), filter)
 	if err != nil {
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get maintenances!!", err)
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get maintenances!!", err.Error())
 		return
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Maintenances retrieved successfully!!", maintenances)
@@ -212,16 +212,17 @@ func (h *handler) UpdateStatusMaintenance(w http.ResponseWriter, r *http.Request
 	maintenanceUpdated.MaintenanceId = maintenanceId
 	maintenanceUpdated.Status = MaintenanceStatus(statusUpdate.Status)
 	if statusUpdate.Status == string(Completed) {
-		maintenanceUpdated.CompletedAt = time.Now()
+		now := time.Now()
+		maintenanceUpdated.CompletedAt = &now
 	}
 
-	err = h.usecase.UpdateStatusMaintenance(r.Context(), maintenanceUpdated)
+	err = h.usecase.UpdateStatusMaintenance(r.Context(), maintenanceId, maintenanceUpdated)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "Maintenance not found", nil)
 			return
 		}
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update maintenance status!!", err)
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update maintenance status!!", err.Error())
 		return
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Maintenance status updated successfully!!", nil)

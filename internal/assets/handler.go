@@ -128,6 +128,10 @@ func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 	}
 	asset, err := h.usecase.GetAssetById(r.Context(), assetId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
+			return
+		}
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get asset!!", err)
 		return
 	}

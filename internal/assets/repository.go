@@ -3,6 +3,7 @@ package assets
 import (
 	"context"
 	"database/sql"
+	"log"
 )
 
 type Repository interface {
@@ -11,7 +12,7 @@ type Repository interface {
 	GetAssetById(context.Context, string) (Asset, error)
 	DeleteAssetById(context.Context, string) error
 	UpdateAssetById(context.Context, string, Asset) error
-	UpdateAssetStatusById(context.Context, string, AssetStatus) error
+	UpdateAssetStatusById(context.Context, *sql.Tx, string, AssetStatus) error
 }
 
 type repository struct {
@@ -33,11 +34,10 @@ func (r *repository) CreateAsset(ctx context.Context, asset Asset) error {
 			purchased_date,
 			status,
 			brand_id,
-			category_id,
-			created_at,
-			updated_at
+			category_id
+
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := r.db.ExecContext(
@@ -50,8 +50,6 @@ func (r *repository) CreateAsset(ctx context.Context, asset Asset) error {
 		asset.Status,
 		asset.BrandId,
 		asset.CategoryId,
-		asset.CreatedAt,
-		asset.UpdatedAt,
 	)
 
 	if err != nil {
@@ -247,8 +245,7 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 			purchased_date = ?,
 			status = ?,
 			brand_id = ?,
-			category_id = ?,
-			updated_at = ?
+			category_id = ?
 		WHERE asset_id = ?
 	`
 
@@ -261,7 +258,6 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 		asset.Status,
 		asset.BrandId,
 		asset.CategoryId,
-		asset.UpdatedAt,
 		assetId,
 	)
 
@@ -280,15 +276,16 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 
 	return nil
 }
-func (r *repository) UpdateAssetStatusById(ctx context.Context, assetId string, status AssetStatus) error {
+func (r *repository) UpdateAssetStatusById(
+	ctx context.Context, tx *sql.Tx, assetId string, status AssetStatus) error {
+	log.Println(assetId, "ini di repo")
 	query := `
 		UPDATE assets
-		SET
-			status = ?,
+		SET status =  ?
 		WHERE asset_id = ?
 	`
 
-	result, err := r.db.ExecContext(
+	_, err := tx.ExecContext(
 		ctx,
 		query,
 		status,
@@ -297,15 +294,6 @@ func (r *repository) UpdateAssetStatusById(ctx context.Context, assetId string, 
 
 	if err != nil {
 		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
 	}
 
 	return nil

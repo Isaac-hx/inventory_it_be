@@ -9,7 +9,7 @@ type Repository interface {
 	GetAllMaintenances(context.Context, MaintenanceFilter) ([]Maintenance, error)
 	GetMaintenanceById(context.Context, string) (Maintenance, error)
 	CreateMaintenanceTx(context.Context, *sql.Tx, Maintenance) error
-	UpdateMaintenanceStatusTx(context.Context, *sql.Tx, Maintenance) error
+	UpdateMaintenanceStatusTx(context.Context, *sql.Tx, string, Maintenance) error
 	UpdateMaintenanceCostTx(context.Context, *sql.Tx, string, int64) error
 	UpdateMaintenanceDescriptionTx(context.Context, *sql.Tx, string, string) error
 }
@@ -98,7 +98,7 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 	defer rows.Close()
 
 	maintenances := []Maintenance{}
-
+	var completedAt sql.NullTime
 	for rows.Next() {
 		var maintenance Maintenance
 
@@ -109,7 +109,7 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 			&maintenance.Status,
 			&maintenance.AssetId,
 			&maintenance.MaintenanceAt,
-			&maintenance.CompletedAt,
+			&completedAt,
 			&maintenance.CreatedAt,
 			&maintenance.UpdatedAt,
 			&maintenance.Asset.AssetName,
@@ -119,6 +119,11 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 			&maintenance.Category.CategoryId,
 			&maintenance.Category.CategoryName,
 		)
+		if completedAt.Valid {
+			maintenance.CompletedAt = &completedAt.Time
+		} else {
+			maintenance.CompletedAt = nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +138,7 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 	return maintenances, nil
 }
 
-func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, id string) (Maintenance, error) {
+func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, maintenance_id string) (Maintenance, error) {
 	query := `
 		SELECT 
 			m.maintenance_id,
@@ -164,9 +169,10 @@ func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, id strin
 		WHERE m.maintenance_id = ?
 	`
 
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.db.QueryRowContext(ctx, query, maintenance_id)
 
 	var maintenance Maintenance
+	var completedAt sql.NullTime
 
 	err := row.Scan(
 		&maintenance.MaintenanceId,
@@ -175,7 +181,7 @@ func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, id strin
 		&maintenance.Status,
 		&maintenance.AssetId,
 		&maintenance.MaintenanceAt,
-		&maintenance.CompletedAt,
+		&completedAt,
 		&maintenance.CreatedAt,
 		&maintenance.UpdatedAt,
 		&maintenance.Asset.AssetName,
@@ -190,6 +196,12 @@ func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, id strin
 			return Maintenance{}, nil
 		}
 		return Maintenance{}, err
+	}
+
+	if completedAt.Valid {
+		maintenance.CompletedAt = &completedAt.Time
+	} else {
+		maintenance.CompletedAt = nil
 	}
 
 	return maintenance, nil
@@ -229,16 +241,17 @@ func (r *MaintenanceRepository) CreateMaintenanceTx(
 func (r *MaintenanceRepository) UpdateMaintenanceStatusTx(
 	ctx context.Context,
 	tx *sql.Tx,
+	maintenance_id string,
 	maintenanceUpdated Maintenance,
 ) error {
 	query := `
 		UPDATE maintenances
-		SET status = ?
+		SET status = ?,
 		completed_at = ?
 		WHERE maintenance_id = ?
 	`
 
-	result, err := tx.ExecContext(ctx, query, maintenanceUpdated.Status, maintenanceUpdated.CompletedAt, maintenanceUpdated.MaintenanceId)
+	result, err := tx.ExecContext(ctx, query, maintenanceUpdated.Status, maintenanceUpdated.CompletedAt, maintenance_id)
 	if err != nil {
 		return err
 	}

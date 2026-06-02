@@ -3,8 +3,10 @@ package maintenances
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"inventory-it/internal/assets"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,7 +16,7 @@ type Usecase interface {
 	GetAllMaintenances(context.Context, MaintenanceFilter) ([]Maintenance, error)
 	GetMaintenanceById(context.Context, string) (Maintenance, error)
 	CreateMaintenance(context.Context, Maintenance) (Maintenance, error)
-	UpdateStatusMaintenance(context.Context, Maintenance) error
+	UpdateStatusMaintenance(context.Context, string, Maintenance) error
 	UpdateMaintenance(context.Context, Maintenance) error
 }
 
@@ -69,7 +71,7 @@ func (u *usecase) CreateMaintenance(ctx context.Context, maintenance Maintenance
 	}
 
 	//call repo update asset status with transaction
-	err = u.assetRepo.UpdateAssetStatusById(ctx, maintenance.AssetId, assets.Maintenance)
+	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Maintenance)
 	if err != nil {
 		return Maintenance{}, err
 	}
@@ -102,7 +104,7 @@ func (u *usecase) GetMaintenanceById(ctx context.Context, maintenanceId string) 
 	return maintenance, nil
 }
 
-func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance Maintenance) error {
+func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance_id string, maintenance Maintenance) error {
 	// Start a transaction
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -110,28 +112,30 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance Maint
 	}
 	//if set instruction is error, rollback
 	defer tx.Rollback()
-
+	log.Println(maintenance_id)
 	//call search maintenance by id with transaction
-	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance.MaintenanceId)
+	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance_id)
 	if err != nil {
 		return err
 	}
-
+	log.Println(existingMaintenance.AssetId)
 	var updatedMaintenance Maintenance
 	if maintenance.Status == Completed || maintenance.Status == Cancelled {
+		updatedMaintenance.MaintenanceId = existingMaintenance.MaintenanceId
 		updatedMaintenance = existingMaintenance
 		updatedMaintenance.Status = maintenance.Status
-		updatedMaintenance.CompletedAt = time.Now()
+		now := time.Now()
+		updatedMaintenance.CompletedAt = &now
 	} else {
 		updatedMaintenance = existingMaintenance
 		updatedMaintenance.Status = maintenance.Status
-		updatedMaintenance.CompletedAt = time.Time{}
+		updatedMaintenance.CompletedAt = nil
 	}
 
 	//call repo to update maintenance status with transaction
-	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, updatedMaintenance)
+	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, maintenance_id, updatedMaintenance)
 	if err != nil {
-		return err
+		return errors.New("Error update maintenancesstatustx")
 	}
 
 	//check if maintenance status is completed or cancelled, if yes set asset status to available, if not set asset status to maintenance
@@ -143,15 +147,14 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance Maint
 	}
 
 	//call repo asset to update asset status to available
-	err = u.assetRepo.UpdateAssetStatusById(ctx, existingMaintenance.AssetId, checkStatus)
-	if err != nil {
-		return err
+	err2 := u.assetRepo.UpdateAssetStatusById(ctx, tx, existingMaintenance.AssetId, checkStatus)
+	if err2 != nil {
+		return errors.New("Error update update asset status by id")
 	}
 
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-
 	return nil
 }
 

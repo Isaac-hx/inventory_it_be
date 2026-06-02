@@ -23,7 +23,7 @@ type Maintenance struct {
 	Status        MaintenanceStatus
 	AssetId       string
 	MaintenanceAt time.Time
-	CompletedAt   time.Time
+	CompletedAt   *time.Time
 	Asset         assets.Asset
 	Brand         brands.Brands
 	Category      categories.Categories
