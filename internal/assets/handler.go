@@ -75,7 +75,7 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create asset", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusCreated, "Asset created successfully", assetData)
+	pkg.JSONResponse(w, http.StatusCreated, "Asset created successfully", assetData, nil)
 }
 
 func (h *handler) GetAssets(w http.ResponseWriter, r *http.Request) {
@@ -111,12 +111,12 @@ func (h *handler) GetAssets(w http.ResponseWriter, r *http.Request) {
 		filter.Page = 1 // Default page
 	}
 
-	assets, err := h.usecase.GetAllAssets(r.Context(), filter)
+	assets, meta, err := h.usecase.GetAllAssets(r.Context(), filter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get assets", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Assets retrieved successfully", assets)
+	pkg.JSONResponse(w, http.StatusOK, "Assets retrieved successfully", assets, meta)
 }
 
 func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +135,7 @@ func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get asset!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Asset retrieved successfully!!", asset)
+	pkg.JSONResponse(w, http.StatusOK, "Asset retrieved successfully!!", asset, nil)
 }
 
 func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +183,7 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update asset!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Asset updated successfully!!", assetData)
+	pkg.JSONResponse(w, http.StatusOK, "Asset updated successfully!!", assetData, nil)
 }
 
 func (h *handler) DeleteAsset(w http.ResponseWriter, r *http.Request) {
@@ -202,5 +202,5 @@ func (h *handler) DeleteAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete asset!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Asset deleted successfully!!", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Asset deleted successfully!!", nil, nil)
 }

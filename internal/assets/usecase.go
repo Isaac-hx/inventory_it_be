@@ -2,6 +2,7 @@ package assets
 
 import (
 	"context"
+	"inventory-it/internal/pkg"
 	"strings"
 
 	"github.com/google/uuid"
@@ -9,7 +10,7 @@ import (
 
 type Usecase interface {
 	CreateAsset(ctx context.Context, asset Asset) error
-	GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset, error)
+	GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset, pkg.PaginationMeta, error)
 	GetAssetById(ctx context.Context, assetId string) (Asset, error)
 	UpdateAssetById(ctx context.Context, assetId string, asset Asset) error
 	DeleteAssetById(ctx context.Context, assetId string) error
@@ -25,8 +26,16 @@ func NewAssetUsecase(r Repository) Usecase {
 	}
 }
 
-func (u *usecase) GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset, error) {
-	return u.repo.GetAllAssets(ctx, filter)
+func (u *usecase) GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset, pkg.PaginationMeta, error) {
+	assets, err := u.repo.GetAllAssets(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	meta, err := u.repo.GetTotalPageAndTotalDataAssets(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	return assets, meta, nil
 }
 
 func (u *usecase) GetAssetById(ctx context.Context, assetId string) (Asset, error) {

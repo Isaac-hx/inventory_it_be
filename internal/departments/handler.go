@@ -50,12 +50,12 @@ func (h *handler) CreateDepartment(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Department name is required!!", nil)
 		return
 	}
-	err = h.usecase.CreateDepartment(r.Context(), departmentReq.DepartmentName)
+	createdDepartment, err := h.usecase.CreateDepartment(r.Context(), departmentReq.DepartmentName)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusCreated, "Department created successfully!!", nil)
+	pkg.JSONResponse(w, http.StatusCreated, "Department created successfully!!", createdDepartment, nil)
 }
 
 func (h *handler) UpdateDepartmentNameById(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (h *handler) UpdateDepartmentNameById(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Department updated sucessfully", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Department updated sucessfully", nil, nil)
 	// Implementation for updating a department name by its ID
 }
 
@@ -108,7 +108,7 @@ func (h *handler) DeleteDepartmentById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete department!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Department deleted successfully!!", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Department deleted successfully!!", nil, nil)
 }
 
 func (h *handler) GetDepartmentById(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +126,7 @@ func (h *handler) GetDepartmentById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get department!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Department retrieved successfully!!", department)
+	pkg.JSONResponse(w, http.StatusOK, "Department retrieved successfully!!", department, nil)
 }
 
 func (h *handler) GetAllDepartments(w http.ResponseWriter, r *http.Request) {
@@ -163,10 +163,10 @@ func (h *handler) GetAllDepartments(w http.ResponseWriter, r *http.Request) {
 	departmentFilter.OrderBy = orderBy
 
 	// Implementation for retrieving all departments
-	departments, err := h.usecase.GetAllDepartments(r.Context(), departmentFilter)
+	departments, meta, err := h.usecase.GetAllDepartments(r.Context(), departmentFilter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get departments!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Departments retrieved successfully!!", departments)
+	pkg.JSONResponse(w, http.StatusOK, "Departments retrieved successfully!!", departments, meta)
 }

@@ -13,7 +13,7 @@ import (
 
 type Usecase interface {
 	Register(ctx context.Context, user User) error
-	Login(ctx context.Context, email, password string) (string, error)
+	Login(ctx context.Context, email, password string) (userResponse, error)
 }
 
 type usecase struct {
@@ -54,14 +54,14 @@ func (u *usecase) Register(ctx context.Context, user User) error {
 	return u.repo.Create(ctx, &userCreate)
 }
 
-func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (string, error) {
+func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (userResponse, error) {
 	var userRegistered User
 	var isRegistered bool
 
 	if pkg.IsValidEmail(usernameOrEmail) {
 		user, registered, err := u.repo.FindByEmail(ctx, usernameOrEmail)
 		if err != nil {
-			return "", err
+			return userResponse{}, err
 		}
 		log.Println("user", user)
 		isRegistered = registered
@@ -69,7 +69,7 @@ func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (
 	} else {
 		user, registered, err := u.repo.FindByUsername(ctx, usernameOrEmail)
 		if err != nil {
-			return "", err
+			return userResponse{}, err
 		}
 		log.Println("user", user)
 
@@ -78,12 +78,13 @@ func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (
 	}
 
 	if !isRegistered {
-		return "", errors.New("invalid username or password")
+		return userResponse{}, errors.New("invalid username or password")
 	}
 
 	if !pkg.ComparePassword(userRegistered.Password, password) {
-		return "", errors.New("invalid username or password")
+		return userResponse{}, errors.New("invalid username or password")
 	}
+	var loginResp userResponse
 
 	token, err := u.jwtConfig.GenerateToken(
 		userRegistered.UserId,
@@ -91,10 +92,12 @@ func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (
 		userRegistered.Email,
 		userRegistered.Username,
 	)
+	loginResp.User = userRegistered
+	loginResp.Token = token
 
 	if err != nil {
-		return "", err
+		return userResponse{}, err
 	}
 
-	return token, nil
+	return loginResp, nil
 }

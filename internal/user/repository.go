@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"database/sql"
+	"inventory-it/internal/pkg"
+	"math"
 )
 
 // Create header method
@@ -11,6 +13,7 @@ type Repository interface {
 	GetUserById(ctx context.Context, userId string) (User, error)
 	DeleteUserById(ctx context.Context, userId string) error
 	UpdateUserById(ctx context.Context, userId string, user User) error
+	GetTotalPageAndTotalDataUsers(context.Context, UserFilter) (pkg.PaginationMeta, error)
 }
 
 // Abstraction for databse object
@@ -166,4 +169,56 @@ func (r *repository) UpdateUserById(ctx context.Context, userId string, user Use
 	}
 
 	return nil
+}
+
+func (r *repository) GetTotalPageAndTotalDataUsers(ctx context.Context, filter UserFilter) (pkg.PaginationMeta, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM users u
+		LEFT JOIN departments d
+			ON u.department_id = d.department_id
+		WHERE 1=1
+	`
+
+	args := []any{}
+	var paginationData pkg.PaginationMeta
+
+	if filter.Search != "" {
+		query += `
+			AND (
+				u.username LIKE ?
+				OR u.email LIKE ?
+				OR d.department_name LIKE ?
+			)
+		`
+
+		search := "%" + filter.Search + "%"
+		args = append(args, search, search, search)
+	}
+	var totalData int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		args...,
+	).Scan(&totalData)
+
+	if err != nil {
+		return paginationData, err
+	}
+
+	var totalPage int
+
+	if filter.Limit > 0 {
+		totalPage = int(math.Ceil(
+			float64(totalData) / float64(filter.Limit),
+		))
+	}
+
+	paginationData.Page = filter.Page
+	paginationData.Limit = filter.Limit
+	paginationData.TotalData = totalData
+	paginationData.TotalPage = totalPage
+
+	return paginationData, nil
 }

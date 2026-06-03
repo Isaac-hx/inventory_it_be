@@ -23,7 +23,7 @@ func (r *Routes) RegisterRoutes() {
 		r.mux,
 		"GET",
 		"/brands",
-		http.HandlerFunc(r.handler.GetAllBrands),
+		http.HandlerFunc(r.handler.GetAllBrand),
 	)
 
 	pkg.PublicRoute(

@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"inventory-it/internal/assets"
-	"log"
+	"inventory-it/internal/pkg"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type Usecase interface {
-	GetAllMaintenances(context.Context, MaintenanceFilter) ([]Maintenance, error)
+	GetAllMaintenances(context.Context, MaintenanceFilter) ([]Maintenance, pkg.PaginationMeta, error)
 	GetMaintenanceById(context.Context, string) (Maintenance, error)
 	CreateMaintenance(context.Context, Maintenance) (Maintenance, error)
 	UpdateStatusMaintenance(context.Context, string, Maintenance) error
@@ -85,13 +85,21 @@ func (u *usecase) CreateMaintenance(ctx context.Context, maintenance Maintenance
 
 }
 
-func (u *usecase) GetAllMaintenances(ctx context.Context, maintenanceFilter MaintenanceFilter) ([]Maintenance, error) {
+func (u *usecase) GetAllMaintenances(ctx context.Context, maintenanceFilter MaintenanceFilter) ([]Maintenance, pkg.PaginationMeta, error) {
+
 	maintenances, err := u.repo.GetAllMaintenances(ctx, maintenanceFilter)
 	if err != nil {
-		return nil, err
+		return nil, pkg.PaginationMeta{}, err
+
 	}
 
-	return maintenances, nil
+	meta, err := u.repo.GetTotalPageAndTotalDataMaintenances(ctx, maintenanceFilter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, nil
+
+	}
+
+	return maintenances, meta, nil
 
 }
 
@@ -112,13 +120,11 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance_id st
 	}
 	//if set instruction is error, rollback
 	defer tx.Rollback()
-	log.Println(maintenance_id)
 	//call search maintenance by id with transaction
 	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance_id)
 	if err != nil {
 		return err
 	}
-	log.Println(existingMaintenance.AssetId)
 	var updatedMaintenance Maintenance
 	if maintenance.Status == Completed || maintenance.Status == Cancelled {
 		updatedMaintenance.MaintenanceId = existingMaintenance.MaintenanceId

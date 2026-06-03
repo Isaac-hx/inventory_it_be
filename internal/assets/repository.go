@@ -3,7 +3,8 @@ package assets
 import (
 	"context"
 	"database/sql"
-	"log"
+	"inventory-it/internal/pkg"
+	"math"
 )
 
 type Repository interface {
@@ -13,6 +14,7 @@ type Repository interface {
 	DeleteAssetById(context.Context, string) error
 	UpdateAssetById(context.Context, string, Asset) error
 	UpdateAssetStatusById(context.Context, *sql.Tx, string, AssetStatus) error
+	GetTotalPageAndTotalDataAssets(context.Context, AssetFilter) (pkg.PaginationMeta, error)
 }
 
 type repository struct {
@@ -138,9 +140,10 @@ func (r *repository) GetAllAssets(ctx context.Context, assetFilter AssetFilter) 
 			&asset.SerialNumber,
 			&asset.PurchasedDate,
 			&asset.Status,
-			&asset.BrandId,
-			&asset.BrandName,
-			&asset.CategoryId,
+			&asset.Brand.BrandId,
+			&asset.Brand.BrandName,
+			&asset.Category.CategoryId,
+			&asset.Category.CategoryName,
 			&asset.CategoryName,
 			&asset.CreatedAt,
 			&asset.UpdatedAt,
@@ -192,10 +195,10 @@ func (r *repository) GetAssetById(ctx context.Context, assetId string) (Asset, e
 		&asset.SerialNumber,
 		&asset.PurchasedDate,
 		&asset.Status,
-		&asset.BrandId,
-		&asset.BrandName,
-		&asset.CategoryId,
-		&asset.CategoryName,
+		&asset.Brand.BrandId,
+		&asset.Brand.BrandName,
+		&asset.Category.CategoryId,
+		&asset.Category.CategoryName,
 		&asset.CreatedAt,
 		&asset.UpdatedAt,
 	)
@@ -249,7 +252,7 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 		WHERE asset_id = ?
 	`
 
-	result, err := r.db.ExecContext(
+	_, err := r.db.ExecContext(
 		ctx,
 		query,
 		asset.AssetName,
@@ -265,20 +268,10 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
 	return nil
 }
 func (r *repository) UpdateAssetStatusById(
 	ctx context.Context, tx *sql.Tx, assetId string, status AssetStatus) error {
-	log.Println(assetId, "ini di repo")
 	query := `
 		UPDATE assets
 		SET status =  ?
@@ -297,4 +290,75 @@ func (r *repository) UpdateAssetStatusById(
 	}
 
 	return nil
+}
+
+func (r *repository) GetTotalPageAndTotalDataAssets(ctx context.Context, filter AssetFilter) (pkg.PaginationMeta, error) {
+	query := `
+		SELECT
+			a.asset_id,
+			a.asset_name,
+			a.serial_number,
+			a.purchased_date,
+			a.status,
+
+			b.brand_id,
+			b.brand_name,
+
+			c.category_id,
+			c.category_name,
+
+			a.created_at,
+			a.updated_at
+		FROM assets a
+		INNER JOIN brands b
+			ON a.brand_id = b.brand_id
+		INNER JOIN categories c
+			ON a.category_id = c.category_id
+		WHERE 1=1
+	`
+
+	args := []any{}
+
+	if filter.Search != "" {
+		query += `
+			AND (
+				a.asset_name LIKE ?
+				OR a.serial_number LIKE ?
+				OR b.brand_name LIKE ?
+				OR c.category_name LIKE ?
+			)
+		`
+
+		search := "%" + filter.Search + "%"
+		args = append(args, search, search, search, search)
+	}
+
+	var paginationData pkg.PaginationMeta
+
+	var totalData int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		args...,
+	).Scan(&totalData)
+
+	if err != nil {
+		return paginationData, err
+	}
+
+	var totalPage int
+
+	if filter.Limit > 0 {
+		totalPage = int(math.Ceil(
+			float64(totalData) / float64(filter.Limit),
+		))
+	}
+
+	paginationData.Page = filter.Page
+	paginationData.Limit = filter.Limit
+	paginationData.TotalData = totalData
+	paginationData.TotalPage = totalPage
+
+	return paginationData, nil
 }

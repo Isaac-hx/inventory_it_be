@@ -25,7 +25,7 @@ type Maintenance struct {
 	MaintenanceAt time.Time
 	CompletedAt   *time.Time
 	Asset         assets.Asset
-	Brand         brands.Brands
+	Brand         brands.Brand
 	Category      categories.Categories
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

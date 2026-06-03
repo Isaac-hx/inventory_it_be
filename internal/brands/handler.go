@@ -19,7 +19,7 @@ type BrandFilter struct {
 	OrderBy string
 }
 type Handler interface {
-	GetAllBrands(w http.ResponseWriter, r *http.Request)
+	GetAllBrand(w http.ResponseWriter, r *http.Request)
 	GetBrandById(w http.ResponseWriter, r *http.Request)
 	CreateBrand(w http.ResponseWriter, r *http.Request)
 	UpdateBrand(w http.ResponseWriter, r *http.Request)
@@ -36,7 +36,7 @@ func NewHandler(u Usecase) Handler {
 	}
 }
 
-func (h *handler) GetAllBrands(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetAllBrand(w http.ResponseWriter, r *http.Request) {
 	var brandFilter BrandFilter
 
 	//get query params
@@ -62,13 +62,13 @@ func (h *handler) GetAllBrands(w http.ResponseWriter, r *http.Request) {
 	brandFilter.Page = page
 	brandFilter.OrderBy = orderBy
 
-	brands, err := h.usecase.GetAllBrands(r.Context(), brandFilter)
+	Brand, meta, err := h.usecase.GetAllBrands(r.Context(), brandFilter)
 	if err != nil {
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get brands", err.Error())
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get Brand", err.Error())
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get all brands", brands)
+	pkg.JSONResponse(w, http.StatusOK, "Success get all Brand", Brand, meta)
 }
 
 func (h *handler) GetBrandById(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +85,7 @@ func (h *handler) GetBrandById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get brand by id", brand)
+	pkg.JSONResponse(w, http.StatusOK, "Success get brand by id", brand, nil)
 }
 
 func (h *handler) CreateBrand(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +102,7 @@ func (h *handler) CreateBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var createBrand Brands
+	var createBrand Brand
 	createBrand.BrandName = brand.BrandName
 
 	err = h.usecase.CreateBrand(r.Context(), createBrand)
@@ -111,7 +111,7 @@ func (h *handler) CreateBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success create brand", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success create brand", nil, nil)
 }
 
 func (h *handler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +130,7 @@ func (h *handler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var updateBrand Brands
+	var updateBrand Brand
 	updateBrand.BrandName = brand.BrandName
 
 	err = h.usecase.UpdateBrand(r.Context(), brandId, updateBrand)
@@ -143,7 +143,7 @@ func (h *handler) UpdateBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success update brand", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success update brand", nil, nil)
 }
 
 func (h *handler) DeleteBrand(w http.ResponseWriter, r *http.Request) {
@@ -159,5 +159,5 @@ func (h *handler) DeleteBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success delete brand", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success delete brand", nil, nil)
 }

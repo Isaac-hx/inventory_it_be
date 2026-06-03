@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS assets (
     asset_id VARCHAR(50) PRIMARY KEY,
     asset_name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
     serial_number VARCHAR(255) UNIQUE,
     purchased_date DATE,
 

@@ -80,12 +80,12 @@ func (h *handler) GetAllMaintenances(w http.ResponseWriter, r *http.Request) {
 	filter.Limit = limit
 
 	// Call usecase to get maintenances
-	maintenances, err := h.usecase.GetAllMaintenances(r.Context(), filter)
+	maintenances, meta, err := h.usecase.GetAllMaintenances(r.Context(), filter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get maintenances!!", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Maintenances retrieved successfully!!", maintenances)
+	pkg.JSONResponse(w, http.StatusOK, "Maintenances retrieved successfully!!", maintenances, meta)
 }
 
 func (h *handler) GetMaintenanceById(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func (h *handler) GetMaintenanceById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get maintenance!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Maintenance retrieved successfully!!", maintenance)
+	pkg.JSONResponse(w, http.StatusOK, "Maintenance retrieved successfully!!", maintenance, nil)
 }
 
 func (h *handler) CreateMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func (h *handler) CreateMaintenance(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create maintenance!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusCreated, "Maintenance created successfully!!", maintenanceData)
+	pkg.JSONResponse(w, http.StatusCreated, "Maintenance created successfully!!", maintenanceData, nil)
 }
 
 func (h *handler) UpdateMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +185,7 @@ func (h *handler) UpdateMaintenance(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update maintenance!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Maintenance updated successfully!!", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Maintenance updated successfully!!", nil, nil)
 }
 
 func (h *handler) UpdateStatusMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -225,5 +225,5 @@ func (h *handler) UpdateStatusMaintenance(w http.ResponseWriter, r *http.Request
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update maintenance status!!", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Maintenance status updated successfully!!", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Maintenance status updated successfully!!", nil, nil)
 }

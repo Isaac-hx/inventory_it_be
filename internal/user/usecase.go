@@ -2,11 +2,12 @@ package user
 
 import (
 	"context"
+	"inventory-it/internal/pkg"
 	"strings"
 )
 
 type Usecase interface {
-	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, error)
+	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, pkg.PaginationMeta, error)
 	GetUserById(ctx context.Context, userId string) (User, error)
 	DeleteUserById(ctx context.Context, userId string) error
 	UpdateUserById(ctx context.Context, userId string, user User) error
@@ -25,9 +26,16 @@ func NewUsecase(r Repository) Usecase {
 func (u *usecase) GetAllUsers(
 	ctx context.Context,
 	filter UserFilter,
-) ([]User, error) {
-
-	return u.repo.GetAllUsers(ctx, filter)
+) ([]User, pkg.PaginationMeta, error) {
+	users, err := u.repo.GetAllUsers(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	meta, err := u.repo.GetTotalPageAndTotalDataUsers(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	return users, meta, nil
 }
 
 func (u *usecase) GetUserById(ctx context.Context, userId string) (User, error) {

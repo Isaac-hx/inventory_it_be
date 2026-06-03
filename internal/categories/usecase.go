@@ -3,11 +3,12 @@ package categories
 import (
 	"context"
 	"fmt"
+	"inventory-it/internal/pkg"
 	"strings"
 )
 
 type Usecase interface {
-	GetAllCategories(context.Context, *CategoryFilter) ([]Categories, error)
+	GetAllCategories(context.Context, CategoryFilter) ([]Categories, pkg.PaginationMeta, error)
 	GetCategoryById(context.Context, string) (Categories, error)
 	CreateCategory(context.Context, Categories) error
 	UpdateCategory(context.Context, string, Categories) error
@@ -24,8 +25,16 @@ func NewCategoryUsecase(r Repository) Usecase {
 	}
 }
 
-func (u *usecase) GetAllCategories(ctx context.Context, filter *CategoryFilter) ([]Categories, error) {
-	return u.repo.GetAllCategories(ctx, filter)
+func (u *usecase) GetAllCategories(ctx context.Context, filter CategoryFilter) ([]Categories, pkg.PaginationMeta, error) {
+	categories, err := u.repo.GetAllCategories(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	meta, err := u.repo.GetTotalPageAndTotalDataCategories(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	return categories, meta, nil
 }
 
 func (u *usecase) GetCategoryById(ctx context.Context, categoryId string) (Categories, error) {

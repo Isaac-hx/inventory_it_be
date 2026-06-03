@@ -12,15 +12,17 @@ type Response struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   interface{} `json:"error,omitempty"`
+	Meta    interface{} `json:"meta,omitempty"`
 }
 
-func JSONResponse(w http.ResponseWriter, statusCode int, message string, data interface{}) {
+func JSONResponse(w http.ResponseWriter, statusCode int, message string, data interface{}, meta interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	response := Response{
 		Status:  statusCode,
 		Message: message,
 		Data:    data,
+		Meta:    meta,
 	}
 	json.NewEncoder(w).Encode(response)
 }

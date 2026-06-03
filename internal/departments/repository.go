@@ -3,15 +3,18 @@ package departments
 import (
 	"context"
 	"database/sql"
+	"inventory-it/internal/pkg"
+	"math"
 )
 
 type Repository interface {
-	CreateDepartment(ctx context.Context, department Department) error
-	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated Department) error
-	DeleteDepartmentById(ctx context.Context, departmentId string) error
-	GetDepartmentById(ctx context.Context, departmentId string) (Department, error)
-	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error)
-	GetDepartmentByName(ctx context.Context, departmentName string) (Department, error)
+	CreateDepartment(context.Context, Department) error
+	UpdateDepartmentNameById(context.Context, string, Department) error
+	DeleteDepartmentById(context.Context, string) error
+	GetDepartmentById(context.Context, string) (Department, error)
+	GetAllDepartments(context.Context, DepartmentFilter) ([]Department, error)
+	GetDepartmentByName(context.Context, string) (Department, error)
+	GetTotalPageAndTotalDataDepartments(context.Context, DepartmentFilter) (pkg.PaginationMeta, error)
 }
 
 type repository struct {
@@ -33,19 +36,10 @@ func (r *repository) CreateDepartment(ctx context.Context, department Department
 
 func (r *repository) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdated Department) error {
 	// Implementation for updating a department name by its ID in the database
-	result, err := r.db.ExecContext(ctx, `UPDATE departments SET department_name = ? WHERE department_id = ?`, departmentUpdated.DepartmentName, departmentId)
+	_, err := r.db.ExecContext(ctx, `UPDATE departments SET department_name = ? WHERE department_id = ?`, departmentUpdated.DepartmentName, departmentId)
 
 	if err != nil {
 		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
 	}
 
 	return nil
@@ -161,4 +155,52 @@ func (r *repository) GetDepartmentByName(ctx context.Context, departmentName str
 		return Department{}, err
 	}
 	return department, nil
+}
+
+func (r *repository) GetTotalPageAndTotalDataDepartments(ctx context.Context, filter DepartmentFilter) (pkg.PaginationMeta, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM departments
+	`
+
+	args := []any{}
+	var paginationData pkg.PaginationMeta
+
+	if filter.Search != "" {
+		query += `
+			AND (
+				department_name LIKE ?
+	
+			)
+		`
+
+		search := "%" + filter.Search + "%"
+		args = append(args, search)
+	}
+	var totalData int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		args...,
+	).Scan(&totalData)
+
+	if err != nil {
+		return paginationData, err
+	}
+
+	var totalPage int
+
+	if filter.Limit > 0 {
+		totalPage = int(math.Ceil(
+			float64(totalData) / float64(filter.Limit),
+		))
+	}
+
+	paginationData.Page = filter.Page
+	paginationData.Limit = filter.Limit
+	paginationData.TotalData = totalData
+	paginationData.TotalPage = totalPage
+
+	return paginationData, nil
 }

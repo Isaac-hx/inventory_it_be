@@ -3,15 +3,16 @@ package departments
 import (
 	"context"
 	"fmt"
+	"inventory-it/internal/pkg"
 	"strings"
 )
 
 type Usecase interface {
-	CreateDepartment(ctx context.Context, departmentName string) error
+	CreateDepartment(ctx context.Context, departmentName string) (Department, error)
 	UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error
 	DeleteDepartmentById(ctx context.Context, departmentId string) error
 	GetDepartmentById(ctx context.Context, departmentId string) (Department, error)
-	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error)
+	GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, pkg.PaginationMeta, error)
 }
 
 type usecase struct {
@@ -22,7 +23,7 @@ func NewUsecase(repo Repository) Usecase {
 	return &usecase{repo: repo}
 }
 
-func (u *usecase) CreateDepartment(ctx context.Context, departmentName string) error {
+func (u *usecase) CreateDepartment(ctx context.Context, departmentName string) (Department, error) {
 	var departmentData Department
 
 	//create department object
@@ -30,7 +31,7 @@ func (u *usecase) CreateDepartment(ctx context.Context, departmentName string) e
 
 	//edit department name to uppercase
 	departmentData.DepartmentName = strings.ToUpper(departmentName)
-	return u.repo.CreateDepartment(ctx, departmentData)
+	return departmentData, u.repo.CreateDepartment(ctx, departmentData)
 }
 
 func (u *usecase) UpdateDepartmentNameById(ctx context.Context, departmentId string, departmentUpdateName string) error {
@@ -60,6 +61,14 @@ func (u *usecase) GetDepartmentById(ctx context.Context, departmentId string) (D
 	return u.repo.GetDepartmentById(ctx, departmentId)
 }
 
-func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error) {
-	return u.repo.GetAllDepartments(ctx, filter)
+func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, pkg.PaginationMeta, error) {
+	departments, err := u.repo.GetAllDepartments(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	meta, err := u.repo.GetTotalPageAndTotalDataDepartments(ctx, filter)
+	if err != nil {
+		return nil, pkg.PaginationMeta{}, err
+	}
+	return departments, meta, nil
 }

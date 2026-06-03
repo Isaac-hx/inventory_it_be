@@ -34,9 +34,9 @@ func (r *repository) Create(ctx context.Context, u *User) error {
 }
 
 func (r *repository) FindByEmail(ctx context.Context, email string) (User, bool, error) {
-	query := `SELECT username,password,email,role,created_at,updated_at FROM users WHERE email = ?`
+	query := `SELECT user_id,username,password,email,role,created_at,updated_at FROM users WHERE email = ?`
 	var user User
-	err := r.db.QueryRowContext(ctx, query, email).Scan(&user.Username, &user.Password, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query, email).Scan(&user.UserId, &user.Username, &user.Password, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return User{}, false, nil
@@ -47,9 +47,9 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (User, bool,
 }
 
 func (r *repository) FindByUsername(ctx context.Context, username string) (User, bool, error) {
-	query := `SELECT username,password,email,role,created_at,updated_at FROM users WHERE username = ?`
+	query := `SELECT user_id, username,password,email,role,created_at,updated_at FROM users WHERE username = ?`
 	var user User
-	err := r.db.QueryRowContext(ctx, query, username).Scan(&user.Username, &user.Password, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query, username).Scan(&user.UserId, &user.Username, &user.Password, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return User{}, false, nil

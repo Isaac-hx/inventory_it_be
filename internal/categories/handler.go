@@ -37,7 +37,7 @@ func NewCategoryHandler(u Usecase) Handler {
 }
 
 func (h *handler) GetAllCategories(w http.ResponseWriter, r *http.Request) {
-	var categoryFilter *CategoryFilter
+	var categoryFilter CategoryFilter
 
 	//get query params
 	query := r.URL.Query()
@@ -56,17 +56,16 @@ func (h *handler) GetAllCategories(w http.ResponseWriter, r *http.Request) {
 	if orderBy != "asc" && orderBy != "desc" {
 		orderBy = "asc"
 	}
-	categoryFilter = &CategoryFilter{}
 	categoryFilter.Search = search
 	categoryFilter.Limit = limit
 	categoryFilter.Page = page
 	categoryFilter.OrderBy = orderBy
-	categories, err := h.usecase.GetAllCategories(r.Context(), categoryFilter)
+	categories, meta, err := h.usecase.GetAllCategories(r.Context(), categoryFilter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get categories", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success get all categories", categories)
+	pkg.JSONResponse(w, http.StatusOK, "Success get all categories", categories, meta)
 }
 
 func (h *handler) GetCategoryById(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +79,7 @@ func (h *handler) GetCategoryById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get category", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success get category", category)
+	pkg.JSONResponse(w, http.StatusOK, "Success get category", category, nil)
 }
 func (h *handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var category CategoriesReq
@@ -100,7 +99,7 @@ func (h *handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create category", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success create category", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success create category", nil, nil)
 }
 
 func (h *handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +125,7 @@ func (h *handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to update category", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success update category", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success update category", nil, nil)
 }
 
 func (h *handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
@@ -140,5 +139,5 @@ func (h *handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to delete category", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success delete category", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success delete category", nil, nil)
 }

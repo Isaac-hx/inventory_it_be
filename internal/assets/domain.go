@@ -1,6 +1,10 @@
 package assets
 
-import "time"
+import (
+	"inventory-it/internal/brands"
+	"inventory-it/internal/categories"
+	"time"
+)
 
 type AssetStatus string
 
@@ -14,11 +18,13 @@ type Asset struct {
 	AssetId       string
 	AssetName     string
 	SerialNumber  string
+	Description   string
 	PurchasedDate time.Time
 	Status        AssetStatus
 	BrandId       string
+	Brand         brands.Brand
 	CategoryId    string
-	BrandName     string
+	Category      categories.Categories
 	CategoryName  string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

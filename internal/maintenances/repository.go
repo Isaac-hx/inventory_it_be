@@ -3,6 +3,8 @@ package maintenances
 import (
 	"context"
 	"database/sql"
+	"inventory-it/internal/pkg"
+	"math"
 )
 
 type Repository interface {
@@ -12,6 +14,7 @@ type Repository interface {
 	UpdateMaintenanceStatusTx(context.Context, *sql.Tx, string, Maintenance) error
 	UpdateMaintenanceCostTx(context.Context, *sql.Tx, string, int64) error
 	UpdateMaintenanceDescriptionTx(context.Context, *sql.Tx, string, string) error
+	GetTotalPageAndTotalDataMaintenances(context.Context, MaintenanceFilter) (pkg.PaginationMeta, error)
 }
 
 type MaintenanceRepository struct {
@@ -324,4 +327,81 @@ func (r *MaintenanceRepository) UpdateMaintenanceDescriptionTx(
 
 	return nil
 
+}
+
+func (r *MaintenanceRepository) GetTotalPageAndTotalDataMaintenances(ctx context.Context, filter MaintenanceFilter) (pkg.PaginationMeta, error) {
+	query := `
+		SELECT 
+			m.maintenance_id,
+			m.description,
+			m.cost,
+			m.status,
+			m.asset_id,
+			m.maintenance_at,
+			m.completed_at,
+			m.created_at,
+			m.updated_at,
+
+			a.asset_name,
+			a.serial_number,
+
+			b.brand_id,
+			b.brand_name,
+			
+			c.category_id,
+			c.category_name
+		FROM maintenances m
+		INNER JOIN assets a
+			ON m.asset_id = a.asset_id
+		INNER JOIN brands b
+			ON a.brand_id = b.brand_id
+		INNER JOIN categories c
+			ON a.category_id = c.category_id
+		WHERE 1=1
+	`
+	args := []any{}
+
+	if filter.Search != "" {
+		query += `
+			AND (
+				a.asset_name LIKE ?
+				OR a.serial_number LIKE ?
+				OR b.brand_name LIKE ?
+				OR c.category_name LIKE ?
+				OR m.description LIKE ?
+			)
+		`
+
+		search := "%" + filter.Search + "%"
+		args = append(args, search, search, search, search, search)
+
+	}
+
+	var paginationData pkg.PaginationMeta
+	var totalData int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		args...,
+	).Scan(&totalData)
+
+	if err != nil {
+		return paginationData, err
+	}
+
+	var totalPage int
+
+	if filter.Limit > 0 {
+		totalPage = int(math.Ceil(
+			float64(totalData) / float64(filter.Limit),
+		))
+	}
+
+	paginationData.Page = filter.Page
+	paginationData.Limit = filter.Limit
+	paginationData.TotalData = totalData
+	paginationData.TotalPage = totalPage
+
+	return paginationData, nil
 }

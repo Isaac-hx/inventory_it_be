@@ -79,13 +79,13 @@ func (h *handler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	userFilter.OrderBy = orderBy
 
 	//call usecase get all users
-	users, err := h.usecase.GetAllUsers(r.Context(), userFilter)
+	users, meta, err := h.usecase.GetAllUsers(r.Context(), userFilter)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get all users", users)
+	pkg.JSONResponse(w, http.StatusOK, "Success get all users", users, meta)
 }
 
 func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", user)
+	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", user, nil)
 }
 
 func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +130,7 @@ func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success delete user by id", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success delete user by id", nil, nil)
 }
 
 func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
@@ -182,5 +182,5 @@ func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success update user by id", nil)
+	pkg.JSONResponse(w, http.StatusOK, "Success update user by id", nil, nil)
 }

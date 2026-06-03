@@ -6,6 +6,10 @@ import (
 	"net/http"
 )
 
+type userResponse struct {
+	User  User   `json:"user"`
+	Token string `json:"token"`
+}
 type userRequest struct {
 	Username      string `json:"username"`
 	Email         string `json:"email"`
@@ -83,7 +87,7 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusCreated, "User created", nil)
+	pkg.JSONResponse(w, http.StatusCreated, "User created", userDomain, nil)
 }
 
 func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +117,7 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.usecase.Login(r.Context(), user.UsernameOrEmail, user.Password)
+	loginResp, err := h.usecase.Login(r.Context(), user.UsernameOrEmail, user.Password)
 	if err != nil {
 		if err.Error() == "invalid username or password" {
 			pkg.ErrorResponse(w, http.StatusUnauthorized, err.Error(), nil)
@@ -123,7 +127,5 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Login successful", map[string]string{
-		"token": token,
-	})
+	pkg.JSONResponse(w, http.StatusOK, "Login successful", loginResp, nil)
 }

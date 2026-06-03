@@ -3,14 +3,17 @@ package categories
 import (
 	"context"
 	"database/sql"
+	"inventory-it/internal/pkg"
+	"math"
 )
 
 type Repository interface {
-	GetAllCategories(context.Context, *CategoryFilter) ([]Categories, error)
+	GetAllCategories(context.Context, CategoryFilter) ([]Categories, error)
 	GetCategoryById(context.Context, string) (Categories, error)
 	CreateCategory(context.Context, Categories) error
 	UpdateCategory(context.Context, string, Categories) error
 	DeleteCategory(context.Context, string) error
+	GetTotalPageAndTotalDataCategories(context.Context, CategoryFilter) (pkg.PaginationMeta, error)
 }
 
 type repository struct {
@@ -23,7 +26,7 @@ func NewCategoryRepository(db *sql.DB) Repository {
 	}
 }
 
-func (r *repository) GetAllCategories(ctx context.Context, filter *CategoryFilter) ([]Categories, error) {
+func (r *repository) GetAllCategories(ctx context.Context, filter CategoryFilter) ([]Categories, error) {
 	query := `SELECT category_id, category_name, created_at, updated_at FROM categories WHERE 1=1`
 	args := []any{}
 
@@ -115,4 +118,52 @@ func (r *repository) DeleteCategory(ctx context.Context, categoryId string) erro
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (r *repository) GetTotalPageAndTotalDataCategories(ctx context.Context, filter CategoryFilter) (pkg.PaginationMeta, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM categories
+	`
+
+	args := []any{}
+	var paginationData pkg.PaginationMeta
+
+	if filter.Search != "" {
+		query += `
+			AND (
+				category_name LIKE ?
+	
+			)
+		`
+
+		search := "%" + filter.Search + "%"
+		args = append(args, search)
+	}
+	var totalData int
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		args...,
+	).Scan(&totalData)
+
+	if err != nil {
+		return paginationData, err
+	}
+
+	var totalPage int
+
+	if filter.Limit > 0 {
+		totalPage = int(math.Ceil(
+			float64(totalData) / float64(filter.Limit),
+		))
+	}
+
+	paginationData.Page = filter.Page
+	paginationData.Limit = filter.Limit
+	paginationData.TotalData = totalData
+	paginationData.TotalPage = totalPage
+
+	return paginationData, nil
 }

@@ -2,7 +2,7 @@ package brands
 
 import "time"
 
-type Brands struct {
+type Brand struct {
 	BrandId   string
 	BrandName string
 	CreatedAt time.Time

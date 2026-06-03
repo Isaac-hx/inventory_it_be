@@ -12,6 +12,7 @@ import (
 	"inventory-it/internal/database"
 	"inventory-it/internal/departments"
 	"inventory-it/internal/maintenances"
+	"inventory-it/internal/middleware"
 	"inventory-it/internal/pkg"
 	"inventory-it/internal/user"
 	"net/http"
@@ -67,7 +68,7 @@ func main() {
 
 	//iniate router
 	mux := http.NewServeMux()
-
+	corsMiddleware := middleware.CORSMiddleware(mux)
 	//Routes auth
 	authRoutes := auth.NewRoutes(authHandler, mux, jwtConfig)
 	authRoutes.RegisterRoutes()
@@ -96,5 +97,5 @@ func main() {
 	maintenanceRoutes := maintenances.NewRoutes(maintenanceHandler, mux, jwtConfig)
 	maintenanceRoutes.RegisterRoutes()
 	fmt.Println("server running on :2511")
-	http.ListenAndServe(":2511", mux)
+	http.ListenAndServe(":2511", corsMiddleware)
 }
