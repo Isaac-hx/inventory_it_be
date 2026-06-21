@@ -15,7 +15,12 @@ type DepartmentFilter struct {
 	Page    int
 	OrderBy string
 }
-
+type DepartmentResponse struct {
+	DepartmentId   string `json:"DepartmentId,omitempty"`
+	DepartmentName string `json:"DepartmentName,omitempty"`
+	CreatedAt      string `json:"CreatedAt,omitempty"`
+	UpdatedAt      string `json:"UpdatedAt,omitempty"`
+}
 type DepartmentRequest struct {
 	DepartmentName string `json:"department_name"`
 }
@@ -126,7 +131,12 @@ func (h *handler) GetDepartmentById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get department!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Department retrieved successfully!!", department, nil)
+	var departmentResponseData DepartmentResponse
+	departmentResponseData.DepartmentId = department.DepartmentId
+	departmentResponseData.DepartmentName = department.DepartmentName
+	departmentResponseData.CreatedAt = pkg.ParseFromDateToString(department.CreatedAt)
+	departmentResponseData.UpdatedAt = pkg.ParseFromDateToString(department.UpdatedAt)
+	pkg.JSONResponse(w, http.StatusOK, "Department retrieved successfully!!", departmentResponseData, nil)
 }
 
 func (h *handler) GetAllDepartments(w http.ResponseWriter, r *http.Request) {
@@ -168,5 +178,16 @@ func (h *handler) GetAllDepartments(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get departments!!", err)
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Departments retrieved successfully!!", departments, meta)
+
+	var departementsResponseData []DepartmentResponse
+	for _, item := range departments {
+		var department DepartmentResponse
+		department.DepartmentId = item.DepartmentId
+		department.DepartmentName = item.DepartmentName
+		department.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
+		department.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
+		departementsResponseData = append(departementsResponseData, department)
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Departments retrieved successfully!!", departementsResponseData, meta)
 }

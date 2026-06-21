@@ -38,8 +38,8 @@ func ErrorResponse(w http.ResponseWriter, statusCode int, message string, err in
 	json.NewEncoder(w).Encode(response)
 }
 
-func ParseToDate(dateStr string) (time.Time, error) {
-	layout := "2006-01-02"
+func ParseFromStringToDate(dateStr string) (time.Time, error) {
+	layout := "02 January 2006"
 	parsedDate, err := time.Parse(layout, dateStr)
 	if err != nil {
 		return time.Time{}, err
@@ -48,6 +48,11 @@ func ParseToDate(dateStr string) (time.Time, error) {
 	return parsedDate, nil
 }
 
+func ParseFromDateToString(dateStr time.Time) string {
+	layout := "02 January 2006"
+	parsedStringDate := dateStr.Format(layout)
+	return parsedStringDate
+}
 func IsValidEmail(email string) bool {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 	return emailRegex.MatchString(email)

@@ -16,6 +16,18 @@ type userRequest struct {
 	Role          string `json:"role"`
 	Department_id string `json:"department_id"`
 }
+
+type userResponse struct {
+	UserId         string `json:"UserId,omitempty"`
+	Username       string `json:"Username,omitempty"`
+	Email          string `json:"Email,omitempty"`
+	Role           string `json:"Role,omitempty"`
+	DepartmentId   string `json:"DepartmentId,omitempty"`
+	DepartmentName string `json:"DepartmentName,omitempty"`
+	CreatedAt      string `json:"CreatedAt,omitempty"`
+	UpdatedAt      string `json:"UpdatedAt,omitempty"`
+}
+
 type UserFilter struct {
 	Role    string
 	Search  string
@@ -28,6 +40,7 @@ type Handler interface {
 	GetUserById(w http.ResponseWriter, r *http.Request)
 	DeleteUserById(w http.ResponseWriter, r *http.Request)
 	UpdateUserById(w http.ResponseWriter, r *http.Request)
+	GetAllDataUsers(w http.ResponseWriter, r *http.Request)
 }
 
 // Object Handler wiring to usecase
@@ -85,7 +98,21 @@ func (h *handler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get all users", users, meta)
+	var responseData []userResponse
+	for _, item := range users {
+		var user userResponse
+		user.UserId = item.UserId
+		user.Username = item.Username
+		user.Email = item.Email
+		user.Role = item.Role
+		user.DepartmentId = item.DepartmentId
+		user.DepartmentName = item.DepartmentName
+		user.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
+		user.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
+		responseData = append(responseData, user)
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Success get all users", responseData, meta)
 }
 
 func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +134,17 @@ func (h *handler) GetUserById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", user, nil)
+	var userResponseData userResponse
+	userResponseData.UserId = user.UserId
+	userResponseData.Username = user.Username
+	userResponseData.Email = user.Email
+	userResponseData.DepartmentId = user.DepartmentId
+	userResponseData.Role = user.Role
+	userResponseData.DepartmentName = user.DepartmentName
+	userResponseData.CreatedAt = pkg.ParseFromDateToString(user.CreatedAt)
+	userResponseData.UpdatedAt = pkg.ParseFromDateToString(user.UpdatedAt)
+
+	pkg.JSONResponse(w, http.StatusOK, "Success get user by id", userResponseData, nil)
 }
 
 func (h *handler) DeleteUserById(w http.ResponseWriter, r *http.Request) {
@@ -183,4 +220,27 @@ func (h *handler) UpdateUserById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkg.JSONResponse(w, http.StatusOK, "Success update user by id", nil, nil)
+}
+
+func (h *handler) GetAllDataUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.usecase.GetAllUsersData(r.Context())
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
+	var responseData []userResponse
+	for _, item := range users {
+		var user userResponse
+		user.UserId = item.UserId
+		user.Username = item.Username
+		user.Email = item.Email
+		user.Role = item.Role
+		user.DepartmentId = item.DepartmentId
+		user.DepartmentName = item.DepartmentName
+		user.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
+		user.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
+		responseData = append(responseData, user)
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Succes Retrieve User Data", responseData, nil)
 }

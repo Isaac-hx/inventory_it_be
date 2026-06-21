@@ -28,13 +28,18 @@ func NewBrandUsecase(r Repository) Usecase {
 func (u *usecase) GetAllBrands(ctx context.Context, filter BrandFilter) ([]Brand, pkg.PaginationMeta, error) {
 	brands, err := u.repo.GetAllBrands(ctx, filter)
 	if err != nil {
-		return nil, pkg.PaginationMeta{}, nil
+		return nil, pkg.PaginationMeta{}, err // ✅ Kembalikan err, jangan nil
 	}
+
+	if len(brands) == 0 {
+		return []Brand{}, pkg.PaginationMeta{}, nil
+	}
+
 	meta, err := u.repo.GetTotalPageAndTotalDataBrands(ctx, filter)
 	if err != nil {
-		return nil, pkg.PaginationMeta{}, nil
-
+		return nil, pkg.PaginationMeta{}, err // ✅ Kembalikan err, jangan nil
 	}
+
 	return brands, meta, nil
 }
 

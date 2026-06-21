@@ -14,6 +14,7 @@ type Repository interface {
 	DeleteUserById(ctx context.Context, userId string) error
 	UpdateUserById(ctx context.Context, userId string, user User) error
 	GetTotalPageAndTotalDataUsers(context.Context, UserFilter) (pkg.PaginationMeta, error)
+	GetAllDataUsers(ctx context.Context) ([]User, error)
 }
 
 // Abstraction for databse object
@@ -221,4 +222,60 @@ func (r *repository) GetTotalPageAndTotalDataUsers(ctx context.Context, filter U
 	paginationData.TotalPage = totalPage
 
 	return paginationData, nil
+}
+
+func (r *repository) GetAllDataUsers(ctx context.Context) ([]User, error) {
+	// 1. Hapus 'WHERE u.user_id = ?' agar mengambil semua data
+	query := `
+        SELECT
+            u.user_id,
+            u.username,
+            u.email,
+            u.role,
+            u.department_id,
+            COALESCE(d.department_name, '') AS department_name, -- Antisipasi jika NULL akibat LEFT JOIN
+            u.created_at,
+            u.updated_at
+        FROM users u
+        LEFT JOIN departments d
+            ON u.department_id = d.department_id`
+
+	// 2. Gunakan QueryContext (bukan QueryRowContext) untuk data banyak
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// 3. Siapkan slice untuk menampung semua user
+	var users []User
+
+	// 4. Looping untuk membaca setiap baris data dari database
+	for rows.Next() {
+		var user User
+		err := rows.Scan(
+			&user.UserId,
+			&user.Username,
+			&user.Email,
+			&user.Role,
+			&user.DepartmentId,
+			&user.DepartmentName,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Masukkan data user ke dalam slice/list
+		users = append(users, user)
+	}
+
+	// 5. Cek apakah ada error yang terjadi selama proses looping
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Kembalikan semua data users
+	return users, nil
 }

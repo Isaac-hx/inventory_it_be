@@ -11,11 +11,13 @@ import (
 type Usecase interface {
 	CreateAsset(ctx context.Context, asset Asset) error
 	GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset, pkg.PaginationMeta, error)
+	GetAllAssetsData(ctx context.Context) ([]Asset, error)
 	GetAssetById(ctx context.Context, assetId string) (Asset, error)
 	UpdateAssetById(ctx context.Context, assetId string, asset Asset) error
 	DeleteAssetById(ctx context.Context, assetId string) error
+	GetOverviewData(ctx context.Context) (pkg.OverviewData, error)
+	GetCountGroupCategoryAssets(context.Context) ([]ChartDataAssetByCategories, error)
 }
-
 type usecase struct {
 	repo Repository
 }
@@ -32,9 +34,11 @@ func (u *usecase) GetAllAssets(ctx context.Context, filter AssetFilter) ([]Asset
 		return nil, pkg.PaginationMeta{}, err
 	}
 	meta, err := u.repo.GetTotalPageAndTotalDataAssets(ctx, filter)
+
 	if err != nil {
 		return nil, pkg.PaginationMeta{}, err
 	}
+
 	return assets, meta, nil
 }
 
@@ -58,4 +62,16 @@ func (u *usecase) UpdateAssetById(ctx context.Context, assetId string, asset Ass
 
 func (u *usecase) DeleteAssetById(ctx context.Context, assetId string) error {
 	return u.repo.DeleteAssetById(ctx, assetId)
+}
+
+func (u *usecase) GetAllAssetsData(ctx context.Context) ([]Asset, error) {
+	return u.repo.GetAllAssetsData(ctx)
+}
+
+func (u *usecase) GetOverviewData(ctx context.Context) (pkg.OverviewData, error) {
+	return u.repo.GetOverview(ctx)
+}
+
+func (u *usecase) GetCountGroupCategoryAssets(ctx context.Context) ([]ChartDataAssetByCategories, error) {
+	return u.repo.GetCountGroupCategoryAssets(ctx)
 }

@@ -1,6 +1,6 @@
 // This file contain registered asset routes
 
-package assets
+package assetassignments
 
 import (
 	"inventory-it/internal/middleware"
@@ -28,9 +28,9 @@ func (r *Routes) RegisterRoutes() {
 	pkg.ProtectedRoute(
 		r.mux,
 		"POST",
-		"/assets",
+		"/asset-assignments",
 		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.CreateAsset),
+		http.HandlerFunc(r.handler.CreateAssetAssignment),
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
@@ -38,9 +38,18 @@ func (r *Routes) RegisterRoutes() {
 	pkg.ProtectedRoute(
 		r.mux,
 		"GET",
-		"/assets",
+		"/asset-assignments",
 		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.GetAssets),
+		http.HandlerFunc(r.handler.GetAllAssetAssignments),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it"),
+	)
+	pkg.ProtectedRoute(
+		r.mux,
+		"GET",
+		"/all-asset-assignments",
+		[]string{"superuser", "admin_it"},
+		http.HandlerFunc(r.handler.GetAllAssignmentsData),
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
@@ -48,54 +57,19 @@ func (r *Routes) RegisterRoutes() {
 	pkg.ProtectedRoute(
 		r.mux,
 		"GET",
-		"/all-assets",
+		"/asset-assignments/{assignment_id}",
 		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.GetAllAssetsData),
+		http.HandlerFunc(r.handler.GetAssetAssignmentById),
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
-
-	pkg.ProtectedRoute(
-		r.mux,
-		"GET",
-		"/assets/{asset_id}",
-		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.GetAssetByID),
-		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser", "admin_it"),
-	)
-
 	pkg.ProtectedRoute(
 		r.mux,
 		"PUT",
-		"/assets/{asset_id}",
+		"/asset-assignments/{assignment_id}",
 		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.UpdateAsset),
+		http.HandlerFunc(r.handler.UpdateAssetAssignment),
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
-	)
-
-	pkg.ProtectedRoute(
-		r.mux,
-		"DELETE",
-		"/assets/{asset_id}",
-		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.DeleteAsset),
-		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser", "admin_it"),
-	)
-
-	pkg.PublicRoute(
-		r.mux,
-		"GET",
-		"/assets/overview",
-		http.HandlerFunc(r.handler.GetOverview),
-	)
-
-	pkg.PublicRoute(
-		r.mux,
-		"GET",
-		"/assets/graphic",
-		http.HandlerFunc(r.handler.GetGraphicDistributionByCategory),
 	)
 }

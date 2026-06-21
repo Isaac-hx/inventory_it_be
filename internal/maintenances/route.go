@@ -28,6 +28,16 @@ func (r *Routes) RegisterRoutes() {
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
+
+	pkg.ProtectedRoute(
+		r.mux,
+		"GET",
+		"/all-maintenances",
+		[]string{"superuser", "admin_it"},
+		http.HandlerFunc(r.handler.GetAllMaintenancesData),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it"),
+	)
 	pkg.ProtectedRoute(
 		r.mux,
 		"GET",
@@ -48,15 +58,6 @@ func (r *Routes) RegisterRoutes() {
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
 
-	pkg.ProtectedRoute(
-		r.mux,
-		"PUT",
-		"/maintenances-status/{maintenance_id}",
-		[]string{"superuser", "admin_it"},
-		http.HandlerFunc(r.handler.UpdateStatusMaintenance),
-		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser", "admin_it"),
-	)
 	pkg.ProtectedRoute(
 		r.mux,
 		"POST",

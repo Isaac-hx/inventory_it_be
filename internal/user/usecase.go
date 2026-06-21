@@ -8,6 +8,7 @@ import (
 
 type Usecase interface {
 	GetAllUsers(ctx context.Context, filter UserFilter) ([]User, pkg.PaginationMeta, error)
+	GetAllUsersData(ctx context.Context) ([]User, error)
 	GetUserById(ctx context.Context, userId string) (User, error)
 	DeleteUserById(ctx context.Context, userId string) error
 	UpdateUserById(ctx context.Context, userId string, user User) error
@@ -54,4 +55,9 @@ func (u *usecase) UpdateUserById(ctx context.Context, userId string, user User) 
 	userUpdate.Role = user.Role
 	userUpdate.DepartmentId = user.DepartmentId
 	return u.repo.UpdateUserById(ctx, userId, userUpdate)
+}
+
+func (u *usecase) GetAllUsersData(ctx context.Context) ([]User, error) {
+	return u.repo.GetAllDataUsers(ctx)
+
 }

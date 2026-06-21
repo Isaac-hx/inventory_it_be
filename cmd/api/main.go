@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	assetassignments "inventory-it/internal/asset_assignments"
 	"inventory-it/internal/assets"
 	"inventory-it/internal/auth"
 	"inventory-it/internal/brands"
@@ -61,10 +62,16 @@ func main() {
 	assetRepo := assets.NewAssetRepository(db)
 	assetUsecase := assets.NewAssetUsecase(assetRepo)
 	assetHandler := assets.NewAssetHandler(assetUsecase)
+
 	//Iniate domain maintenances
 	maintenanceRepo := maintenances.NewMaintenanceRepository(db)
 	maintenanceUsecase := maintenances.NewMaintenanceUsecase(db, maintenanceRepo, assetRepo)
 	maintenanceHandler := maintenances.NewMaintenanceHandler(maintenanceUsecase)
+
+	//Iniate domain asset assignments
+	assetAssignmentRepo := assetassignments.NewAssetAssignmentRepository(db)
+	assetAssignmentUsecase := assetassignments.NewUsecaseAssetAssignment(db, assetAssignmentRepo, assetRepo, userRepo)
+	assetAssignmentHandler := assetassignments.NewHandlerAssetAssignments(assetAssignmentUsecase)
 
 	//iniate router
 	mux := http.NewServeMux()
@@ -96,6 +103,10 @@ func main() {
 	//Routes maintenance
 	maintenanceRoutes := maintenances.NewRoutes(maintenanceHandler, mux, jwtConfig)
 	maintenanceRoutes.RegisterRoutes()
+
+	//Routes Asset assignment
+	assignmentRoutes := assetassignments.NewRoutes(assetAssignmentHandler, mux, jwtConfig)
+	assignmentRoutes.RegisterRoutes()
 	fmt.Println("server running on :2511")
 	http.ListenAndServe(":2511", corsMiddleware)
 }

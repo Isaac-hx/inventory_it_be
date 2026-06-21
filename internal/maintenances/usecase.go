@@ -14,10 +14,10 @@ import (
 
 type Usecase interface {
 	GetAllMaintenances(context.Context, MaintenanceFilter) ([]Maintenance, pkg.PaginationMeta, error)
+	GetAllMaintenancesData(context.Context) ([]Maintenance, error)
 	GetMaintenanceById(context.Context, string) (Maintenance, error)
 	CreateMaintenance(context.Context, Maintenance) (Maintenance, error)
-	UpdateStatusMaintenance(context.Context, string, Maintenance) error
-	UpdateMaintenance(context.Context, Maintenance) error
+	UpdateMaintenance(context.Context, string, Maintenance) error
 }
 
 type usecase struct {
@@ -59,9 +59,9 @@ func (u *usecase) CreateMaintenance(ctx context.Context, maintenance Maintenance
 	maintenanceData.MaintenanceId = uuid.New().String()
 	maintenanceData.Description = maintenance.Description
 	maintenanceData.Cost = maintenance.Cost
-	maintenanceData.Status = Pending
+	maintenanceData.Status = maintenance.Status
 	maintenanceData.AssetId = maintenance.AssetId
-	maintenanceData.MaintenanceAt = time.Now()
+	maintenanceData.MaintenanceAt = maintenance.MaintenanceAt
 	maintenanceData.Asset = asset
 
 	//create maintenance with transaction
@@ -92,10 +92,9 @@ func (u *usecase) GetAllMaintenances(ctx context.Context, maintenanceFilter Main
 		return nil, pkg.PaginationMeta{}, err
 
 	}
-
 	meta, err := u.repo.GetTotalPageAndTotalDataMaintenances(ctx, maintenanceFilter)
 	if err != nil {
-		return nil, pkg.PaginationMeta{}, nil
+		return nil, pkg.PaginationMeta{}, err
 
 	}
 
@@ -112,91 +111,76 @@ func (u *usecase) GetMaintenanceById(ctx context.Context, maintenanceId string) 
 	return maintenance, nil
 }
 
-func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenance_id string, maintenance Maintenance) error {
-	// Start a transaction
+func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, maintenance Maintenance) error {
+	// 1. Mulai transaksi database
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	//if set instruction is error, rollback
+	// Otomatis rollback jika terjadi kegagalan di tengah jalan
 	defer tx.Rollback()
-	//call search maintenance by id with transaction
+
+	// 2. Ambil data maintenance yang sudah ada (Pastikan repo ini mendukung transaksi jika diperlukan)
 	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance_id)
 	if err != nil {
 		return err
 	}
-	var updatedMaintenance Maintenance
-	if maintenance.Status == Completed || maintenance.Status == Cancelled {
-		updatedMaintenance.MaintenanceId = existingMaintenance.MaintenanceId
-		updatedMaintenance = existingMaintenance
-		updatedMaintenance.Status = maintenance.Status
-		now := time.Now()
-		updatedMaintenance.CompletedAt = &now
-	} else {
-		updatedMaintenance = existingMaintenance
-		updatedMaintenance.Status = maintenance.Status
-		updatedMaintenance.CompletedAt = nil
+
+	// 3. Salin data lama ke objek baru untuk melacak perubahan
+	updatedMaintenance := existingMaintenance
+
+	// 4. Perbarui data dasar jika dikirim dari payload frontend
+	if maintenance.Description != "" {
+		updatedMaintenance.Description = maintenance.Description
+	}
+	if maintenance.Cost >= 0 {
+		updatedMaintenance.Cost = maintenance.Cost
 	}
 
-	//call repo to update maintenance status with transaction
-	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, maintenance_id, updatedMaintenance)
+	// 5. Logika Penggabungan Status & Waktu Penyelesaian (CompletedAt)
+	if maintenance.Status != "" {
+		updatedMaintenance.Status = maintenance.Status
+
+		if maintenance.Status == Completed || maintenance.Status == Cancelled {
+			now := time.Now()
+			updatedMaintenance.CompletedAt = &now
+		} else {
+			updatedMaintenance.CompletedAt = nil
+		}
+	}
+
+	// 6. Eksekusi pembaruan data Log Maintenance di dalam Transaksi
+	// Disarankan membuat satu fungsi repo general untuk update semua field sekaligus agar hemat query
+	err = u.repo.UpdateMaintenanceTx(ctx, tx, maintenance_id, updatedMaintenance)
 	if err != nil {
-		return errors.New("Error update maintenancesstatustx")
+		return errors.New("failed to update maintenance record in transaction")
 	}
 
-	//check if maintenance status is completed or cancelled, if yes set asset status to available, if not set asset status to maintenance
-	var checkStatus assets.AssetStatus
-	if maintenance.Status == Completed || maintenance.Status == Cancelled {
-		checkStatus = assets.Available
-	} else {
-		checkStatus = assets.Maintenance
+	// 7. Logika Efek Domino: Update Status Aset di IT Inventory
+	if maintenance.Status != "" {
+		var checkStatus assets.AssetStatus
+
+		if updatedMaintenance.Status == Completed || updatedMaintenance.Status == Cancelled {
+			checkStatus = assets.Available
+		} else {
+			checkStatus = assets.Maintenance
+		}
+
+		// Jalankan pembaruan status aset terikat menggunakan context transaksi (tx) yang sama
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, updatedMaintenance.AssetId, checkStatus)
+		if err != nil {
+			return errors.New("failed to cascade update asset status by id")
+		}
 	}
 
-	//call repo asset to update asset status to available
-	err2 := u.assetRepo.UpdateAssetStatusById(ctx, tx, existingMaintenance.AssetId, checkStatus)
-	if err2 != nil {
-		return errors.New("Error update update asset status by id")
-	}
-
+	// 8. Komit transaksi jika seluruh operasi di atas sukses tanpa hambatan
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance Maintenance) error {
-	// Start a transaction
-	tx, err := u.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	//if set instruction is error, rollback
-	defer tx.Rollback()
-
-	//call search maintenance by id with transaction
-	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance.MaintenanceId)
-	if err != nil {
-		return err
-	}
-
-	updatedMaintenance := existingMaintenance
-	updatedMaintenance.Description = maintenance.Description
-	updatedMaintenance.Cost = maintenance.Cost
-
-	//call repo to update maintenance cost
-	err = u.repo.UpdateMaintenanceCostTx(ctx, tx, updatedMaintenance.MaintenanceId, updatedMaintenance.Cost)
-	if err != nil {
-		return err
-	}
-
-	//call repo to update maintenance description
-	err = u.repo.UpdateMaintenanceDescriptionTx(ctx, tx, updatedMaintenance.MaintenanceId, updatedMaintenance.Description)
-	if err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	return nil
+func (u *usecase) GetAllMaintenancesData(ctx context.Context) ([]Maintenance, error) {
+	return u.repo.GetAllMaintenancesData(ctx)
 }

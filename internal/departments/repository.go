@@ -136,7 +136,6 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 		if err != nil {
 			return nil, err
 		}
-
 		departmentList = append(departmentList, department)
 	}
 

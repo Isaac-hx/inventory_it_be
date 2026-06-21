@@ -27,7 +27,7 @@ func NewBrandRepository(db *sql.DB) Repository {
 }
 
 func (r *repository) GetAllBrands(ctx context.Context, brandFilter BrandFilter) ([]Brand, error) {
-	query := `SELECT brand_id, brand_name, created_at, updated_at FROM Brand WHERE 1=1`
+	query := `SELECT brand_id, brand_name, created_at, updated_at FROM brands WHERE 1=1`
 	args := []any{}
 
 	if brandFilter.Search != "" {
@@ -64,12 +64,11 @@ func (r *repository) GetAllBrands(ctx context.Context, brandFilter BrandFilter) 
 		}
 		BrandList = append(BrandList, brand)
 	}
-
 	return BrandList, nil
 }
 
 func (r *repository) GetBrandById(ctx context.Context, brandId string) (Brand, error) {
-	query := `SELECT brand_id, brand_name, created_at, updated_at FROM Brand WHERE brand_id = ?`
+	query := `SELECT brand_id, brand_name, created_at, updated_at FROM brands WHERE brand_id = ?`
 	var brand Brand
 	err := r.db.QueryRowContext(ctx, query, brandId).Scan(&brand.BrandId, &brand.BrandName, &brand.CreatedAt, &brand.UpdatedAt)
 	if err != nil {
@@ -79,13 +78,13 @@ func (r *repository) GetBrandById(ctx context.Context, brandId string) (Brand, e
 }
 
 func (r *repository) CreateBrand(ctx context.Context, brand Brand) error {
-	query := `INSERT INTO Brand (brand_id, brand_name) VALUES (?, ?)`
+	query := `INSERT INTO brands (brand_id, brand_name) VALUES (?, ?)`
 	_, err := r.db.ExecContext(ctx, query, brand.BrandId, brand.BrandName)
 	return err
 }
 
 func (r *repository) UpdateBrand(ctx context.Context, brandId string, brand Brand) error {
-	query := `UPDATE Brand SET brand_name = ? WHERE brand_id = ?`
+	query := `UPDATE brands SET brand_name = ? WHERE brand_id = ?`
 	result, err := r.db.ExecContext(ctx, query, brand.BrandName, brandId)
 	if err != nil {
 		return err
@@ -101,7 +100,7 @@ func (r *repository) UpdateBrand(ctx context.Context, brandId string, brand Bran
 }
 
 func (r *repository) DeleteBrand(ctx context.Context, brandId string) error {
-	query := `DELETE FROM Brand WHERE brand_id = ?`
+	query := `DELETE FROM brands WHERE brand_id = ?`
 	result, err := r.db.ExecContext(ctx, query, brandId)
 	if err != nil {
 		return err
@@ -117,27 +116,30 @@ func (r *repository) DeleteBrand(ctx context.Context, brandId string) error {
 }
 
 func (r *repository) GetTotalPageAndTotalDataBrands(ctx context.Context, filter BrandFilter) (pkg.PaginationMeta, error) {
+	// 👇 1. Tambahkan WHERE 1=1 agar struktur SQL valid saat digabung dengan AND
 	query := `
-		SELECT COUNT(*)
-		FROM brands
-	`
+        SELECT COUNT(*)
+        FROM brands
+        WHERE 1=1
+    `
 
 	args := []any{}
 	var paginationData pkg.PaginationMeta
 
 	if filter.Search != "" {
 		query += `
-			AND (
-				brand_name LIKE ?
-	
-			)
-		`
+            AND (
+                brand_name LIKE ?
+            )
+        `
 
 		search := "%" + filter.Search + "%"
 		args = append(args, search)
 	}
+
 	var totalData int
 
+	// 2. Jalankan query row
 	err := r.db.QueryRowContext(
 		ctx,
 		query,
@@ -145,12 +147,14 @@ func (r *repository) GetTotalPageAndTotalDataBrands(ctx context.Context, filter 
 	).Scan(&totalData)
 
 	if err != nil {
+		// Jika ada error di sini, sekarang usecase yang baru akan meneruskannya ke handler
 		return paginationData, err
 	}
 
 	var totalPage int
 
 	if filter.Limit > 0 {
+		// Gunakan math.Ceil untuk menghitung total halaman
 		totalPage = int(math.Ceil(
 			float64(totalData) / float64(filter.Limit),
 		))

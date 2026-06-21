@@ -75,7 +75,7 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		Department_id: user.Department_id,
 	}
 
-	err = h.usecase.Register(
+	userData, err := h.usecase.Register(
 		r.Context(),
 		userDomain,
 	)
@@ -87,7 +87,14 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusCreated, "User created", userDomain, nil)
+	var userResponse User
+	userResponse.UserId = userData.UserId
+	userResponse.Username = userData.Username
+	userResponse.Email = userData.Email
+	userResponse.Department_id = userData.Department_id
+	userResponse.Role = userData.Role
+
+	pkg.JSONResponse(w, http.StatusCreated, "User created", userResponse, nil)
 }
 
 func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +124,7 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginResp, err := h.usecase.Login(r.Context(), user.UsernameOrEmail, user.Password)
+	userRegistered, token, err := h.usecase.Login(r.Context(), user.UsernameOrEmail, user.Password)
 	if err != nil {
 		if err.Error() == "invalid username or password" {
 			pkg.ErrorResponse(w, http.StatusUnauthorized, err.Error(), nil)
@@ -127,5 +134,12 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Login successful", loginResp, nil)
+	var userResp userResponse
+	userResp.User.UserId = userRegistered.UserId
+	userResp.User.Email = userRegistered.Email
+	userResp.User.Department_id = userRegistered.Department_id
+	userResp.User.Role = userRegistered.Role
+	userResp.User.Username = userRegistered.Username
+	userResp.Token = token
+	pkg.JSONResponse(w, http.StatusOK, "Login successful", userResp, nil)
 }

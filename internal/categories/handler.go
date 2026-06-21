@@ -9,6 +9,12 @@ import (
 	"strconv"
 )
 
+type CategoriesResponse struct {
+	CategoryId   string `json:"CategoryId,omitempty"`
+	CategoryName string `json:"CategoryName,omitempty"`
+	CreatedAt    string `json:"CreatedAt,omitempty"`
+	UpdatedAt    string `json:"UpdatedAt,omitempty"`
+}
 type CategoriesReq struct {
 	CategoryName string `json:"category_name"`
 }
@@ -65,7 +71,17 @@ func (h *handler) GetAllCategories(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get categories", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success get all categories", categories, meta)
+
+	var categoriesResponseData []CategoriesResponse
+	for _, item := range categories {
+		var category CategoriesResponse
+		category.CategoryId = item.CategoryId
+		category.CategoryName = item.CategoryName
+		category.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
+		category.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
+		categoriesResponseData = append(categoriesResponseData, category)
+	}
+	pkg.JSONResponse(w, http.StatusOK, "Success get all categories", categoriesResponseData, meta)
 }
 
 func (h *handler) GetCategoryById(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +95,12 @@ func (h *handler) GetCategoryById(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get category", err.Error())
 		return
 	}
-	pkg.JSONResponse(w, http.StatusOK, "Success get category", category, nil)
+	var categoryResponseData CategoriesResponse
+	categoryResponseData.CategoryId = category.CategoryId
+	categoryResponseData.CategoryName = category.CategoryName
+	categoryResponseData.CreatedAt = pkg.ParseFromDateToString(category.CreatedAt)
+	categoryResponseData.UpdatedAt = pkg.ParseFromDateToString(category.UpdatedAt)
+	pkg.JSONResponse(w, http.StatusOK, "Success get category", categoryResponseData, nil)
 }
 func (h *handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var category CategoriesReq

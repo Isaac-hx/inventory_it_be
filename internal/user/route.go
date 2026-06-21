@@ -59,4 +59,13 @@ func (r *Routes) RegisterRoutes() {
 		middleware.RBACMiddleware("superuser"),
 	)
 
+	pkg.ProtectedRoute(
+		r.mux,
+		"GET",
+		"/all-users",
+		[]string{"superuser"},
+		http.HandlerFunc(r.handler.GetAllDataUsers),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser"),
+	)
 }
