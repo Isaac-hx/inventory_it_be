@@ -88,14 +88,14 @@ func (r *Routes) RegisterRoutes() {
 	pkg.PublicRoute(
 		r.mux,
 		"GET",
-		"/assets/overview",
+		"/assets/analytics",
 		http.HandlerFunc(r.handler.GetOverview),
 	)
 
 	pkg.PublicRoute(
 		r.mux,
 		"GET",
-		"/assets/graphic",
+		"/assets/analytics/category-distribution",
 		http.HandlerFunc(r.handler.GetGraphicDistributionByCategory),
 	)
 }
