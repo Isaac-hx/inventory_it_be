@@ -23,12 +23,12 @@ CREATE TABLE IF NOT EXISTS assets (
     CONSTRAINT fk_assets_brand
         FOREIGN KEY (brand_id)
         REFERENCES brands(brand_id)
-        ON DELETE SET RESTRICT
+        ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
     CONSTRAINT fk_assets_category
         FOREIGN KEY (category_id)
         REFERENCES categories(category_id)
-        ON DELETE SET RESTRICT
+        ON DELETE RESTRICT
         ON UPDATE CASCADE
 );

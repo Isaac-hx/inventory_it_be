@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"inventory-it/internal/pkg"
-	"log"
 	"math"
 )
 
@@ -125,7 +124,6 @@ func (r *repository) GetAllAssets(ctx context.Context, assetFilter AssetFilter) 
 		query += ` ORDER BY a.created_at DESC `
 	}
 
-	log.Println(query)
 	if assetFilter.Page <= 0 {
 		assetFilter.Page = 1
 	}

@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT fk_users_department
     FOREIGN KEY (department_id)
     REFERENCES departments(department_id)
-    ON DELETE SET RESTRICT
+    ON DELETE  RESTRICT
     ON UPDATE CASCADE
 );

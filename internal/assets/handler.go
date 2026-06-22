@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"inventory-it/internal/pkg"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -121,7 +120,6 @@ func (h *handler) GetAssets(w http.ResponseWriter, r *http.Request) {
 	limit := query.Get("limit")
 	page := query.Get("page")
 
-	log.Println(filter.Status)
 	if filter.Status != "" {
 		isValidStatus := filter.Status == string(Available) ||
 			filter.Status == string(Assigned) ||
