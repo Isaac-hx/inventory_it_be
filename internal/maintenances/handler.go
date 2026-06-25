@@ -7,6 +7,7 @@ import (
 	"inventory-it/internal/pkg"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type MaintenanceRes struct {
@@ -33,6 +34,7 @@ type MaintenanceReq struct {
 	Status        string `json:"status"`
 	AssetId       string `json:"asset_id"`
 	MaintenanceAt string `json:"maintenance_at"`
+	CompletedAt   string `json:"completed_at,omitempty"`
 }
 
 type MaintenanceFilter struct {
@@ -48,6 +50,7 @@ type Handler interface {
 	GetMaintenanceById(w http.ResponseWriter, r *http.Request)
 	CreateMaintenance(w http.ResponseWriter, r *http.Request)
 	UpdateMaintenance(w http.ResponseWriter, r *http.Request)
+	UpdateStatusMaintenanceById(w http.ResponseWriter, r *http.Request)
 	GetAllMaintenancesData(w http.ResponseWriter, r *http.Request)
 }
 
@@ -143,18 +146,22 @@ func (h *handler) GetMaintenanceById(w http.ResponseWriter, r *http.Request) {
 	maintenanceResponseData.Description = maintenance.Description
 	maintenanceResponseData.Cost = maintenance.Cost
 	maintenanceResponseData.Status = string(maintenance.Status)
-	maintenanceResponseData.CompletedAt = pkg.ParseFromDateToString(*maintenance.CompletedAt)
-	maintenanceResponseData.MaintenanceAt = pkg.ParseFromDateToString(maintenance.MaintenanceAt)
+	if maintenance.CompletedAt == nil {
+		maintenanceResponseData.CompletedAt = "-"
+	} else {
+		maintenanceResponseData.CompletedAt = pkg.ParseFromDateToString(*maintenance.CompletedAt)
 
+	}
+	maintenanceResponseData.MaintenanceAt = pkg.ParseFromDateToString(maintenance.MaintenanceAt)
 	maintenanceResponseData.AssetId = maintenance.AssetId
 	maintenanceResponseData.AssetName = maintenance.Asset.AssetName
 	maintenanceResponseData.SerialNumber = maintenance.Asset.SerialNumber
 
-	maintenanceResponseData.CategoryId = maintenance.Asset.Category.CategoryId
-	maintenanceResponseData.CategoryName = maintenance.Asset.Category.CategoryName
+	maintenanceResponseData.CategoryId = maintenance.Category.CategoryId
+	maintenanceResponseData.CategoryName = maintenance.Category.CategoryName
 
-	maintenanceResponseData.BrandId = maintenance.Asset.Brand.BrandId
-	maintenanceResponseData.BrandName = maintenance.Asset.Brand.BrandName
+	maintenanceResponseData.BrandId = maintenance.Brand.BrandId
+	maintenanceResponseData.BrandName = maintenance.Brand.BrandName
 
 	maintenanceResponseData.CreatedAt = pkg.ParseFromDateToString(maintenance.CreatedAt)
 	maintenanceResponseData.UpdatedAt = pkg.ParseFromDateToString(maintenance.UpdatedAt)
@@ -196,7 +203,7 @@ func (h *handler) CreateMaintenance(w http.ResponseWriter, r *http.Request) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
 			return
 		}
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create maintenance!!", err)
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create maintenance!!", err.Error())
 		return
 	}
 	pkg.JSONResponse(w, http.StatusCreated, "Maintenance created successfully!!", maintenanceData, nil)
@@ -295,4 +302,52 @@ func (h *handler) GetAllMaintenancesData(w http.ResponseWriter, r *http.Request)
 
 	// 6. Kirim respon JSON sukses ke client
 	pkg.JSONResponse(w, http.StatusOK, "Success retrieve data maintenance", maintenanceResponseData, nil)
+}
+
+func (h *handler) UpdateStatusMaintenanceById(w http.ResponseWriter, r *http.Request) {
+	maintainanceId := r.PathValue("maintenance_id")
+	if maintainanceId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Maintenance ID is required", nil)
+		return
+	}
+	var maintenanceReq MaintenanceReq
+	err := json.NewDecoder(r.Body).Decode(&maintenanceReq)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body!!", err)
+		return
+	}
+
+	if maintenanceReq.Status != string(Pending) && maintenanceReq.Status != string(InProgress) && maintenanceReq.Status != string(Completed) && maintenanceReq.Status != string(Cancelled) {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status value!!", nil)
+		return
+	}
+	var completedAt *time.Time
+
+	// 2. Logika Pengecekan Status
+	if maintenanceReq.Status == string(Completed) {
+		// Jika statusnya Completed, wajib parsing string ke time.Time
+		parsedDate, err := pkg.ParseFromStringToDate(maintenanceReq.CompletedAt)
+		if err != nil {
+			pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid completed at format!!", err.Error())
+			return
+		}
+		// Ambil alamat memorinya (pointer) agar tidak nil
+		completedAt = &parsedDate
+	} else {
+		// Jika status BUKAN Completed (misal: under_maintenance / cancelled),
+		// kita set nil agar di database jadi NULL
+		completedAt = nil
+	}
+
+	err = h.usecase.UpdateStatusMaintenance(r.Context(), maintainanceId, maintenanceReq.Status, completedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Maintenance ID not found!!", err.Error())
+			return
+		}
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Succesfully updated status", nil, nil)
 }

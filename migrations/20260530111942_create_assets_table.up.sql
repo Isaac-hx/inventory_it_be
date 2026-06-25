@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS assets (
     serial_number VARCHAR(255) UNIQUE NULL,
     quantity_stock INT NOT NULL DEFAULT 1,
     purchased_date DATE NULL,
+    processor VARCHAR(20) NULL,
+    ram VARCHAR(20) NULL,
+    storage VARCHAR(20)  NULL,
 
     status ENUM(
         'available',

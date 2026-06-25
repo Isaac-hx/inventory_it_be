@@ -18,6 +18,7 @@ type Usecase interface {
 	GetMaintenanceById(context.Context, string) (Maintenance, error)
 	CreateMaintenance(context.Context, Maintenance) (Maintenance, error)
 	UpdateMaintenance(context.Context, string, Maintenance) error
+	UpdateStatusMaintenance(context.Context, string, string, *time.Time) error
 }
 
 type usecase struct {
@@ -183,4 +184,41 @@ func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, 
 
 func (u *usecase) GetAllMaintenancesData(ctx context.Context) ([]Maintenance, error) {
 	return u.repo.GetAllMaintenancesData(ctx)
+}
+
+func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenanceId string, status string, completedAt *time.Time) error {
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+	var updateMaintenanceData Maintenance
+	updateMaintenanceData.Status = MaintenanceStatus(status)
+	updateMaintenanceData.CompletedAt = completedAt
+	maintenance, err := u.repo.GetMaintenanceById(ctx, maintenanceId)
+	if err != nil {
+		return err
+	}
+
+	if updateMaintenanceData.Status == Completed || updateMaintenanceData.Status == Cancelled {
+
+		//get asset by id and update
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Available)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Maintenance)
+	}
+
+	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, maintenanceId, updateMaintenanceData)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

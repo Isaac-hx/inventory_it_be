@@ -49,6 +49,7 @@ func ParseFromStringToDate(dateStr string) (time.Time, error) {
 }
 
 func ParseFromDateToString(dateStr time.Time) string {
+
 	layout := "02 January 2006"
 	parsedStringDate := dateStr.Format(layout)
 	return parsedStringDate

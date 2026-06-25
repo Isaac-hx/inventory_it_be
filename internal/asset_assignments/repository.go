@@ -73,6 +73,7 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 
     a.asset_name,
     a.serial_number,
+	a.quantity_stock,
 
     b.brand_id,
     b.brand_name,
@@ -81,9 +82,12 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
     c.category_name,
 
     u.username AS assigned_to_username,
+    u.email AS assigned_to_email,
 
-    admin.username AS assigned_by_username,
-    admin.email AS assigned_by_email
+	d.department_id,
+	d.department_name,
+
+    admin.username AS assigned_by_username
 
 	FROM asset_assignments aa
 
@@ -101,6 +105,9 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 
 	INNER JOIN users admin
 		ON aa.assigned_by = admin.user_id
+	
+	INNER JOIN departments d
+		ON d.department_id = u.department_id
 
 	WHERE aa.assignment_id = ?`
 
@@ -119,7 +126,7 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 
 		&assetAssignment.Asset.AssetName,
 		&assetAssignment.Asset.SerialNumber,
-
+		&assetAssignment.Asset.QuantityStock,
 		&assetAssignment.Asset.BrandId,
 		&assetAssignment.Asset.Brand.BrandName,
 
@@ -129,6 +136,8 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 		&assetAssignment.User.Username,
 		&assetAssignment.User.Email,
 
+		&assetAssignment.User.DepartmentId,
+		&assetAssignment.User.DepartmentName,
 		&assetAssignment.AssignedByUsername,
 	)
 	if err != nil {
@@ -172,16 +181,12 @@ func (r *repository) GetAllAssetAssignments(
 		query += `
 			AND (
 				a.asset_name LIKE ?
-				OR a.serial_number LIKE ?
-				OR b.brand_name LIKE ?
-				OR c.category_name LIKE ?
-				OR u.username LIKE ?
-				OR admin.username LIKE ?
+				
 			)
 		`
 
 		search := "%" + filter.Search + "%"
-		args = append(args, search, search, search, search, search, search)
+		args = append(args, search)
 	}
 
 	if filter.Status != "" {

@@ -62,15 +62,12 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 		query += `
 			AND (
 				a.asset_name LIKE ?
-				OR a.serial_number LIKE ?
-				OR b.brand_name LIKE ?
-				OR c.category_name LIKE ?
-				OR m.description LIKE ?
+
 			)
 		`
 
 		search := "%" + maintenanceFilter.Search + "%"
-		args = append(args, search, search, search, search, search)
+		args = append(args, search)
 	}
 
 	if maintenanceFilter.Status != "" {

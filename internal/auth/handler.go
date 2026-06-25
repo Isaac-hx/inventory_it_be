@@ -61,11 +61,6 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Role != "admin_it" && user.Role != "user" {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid role", "Role must be admin_it or user")
-		return
-	}
-
 	//assign to domain
 	userDomain := User{
 		Username:      user.Username,

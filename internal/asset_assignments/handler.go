@@ -50,6 +50,7 @@ type assetAssignmentResponse struct {
 	AssetName     string `json:"AssetName,omitempty"`
 	SerialNumber  string `json:"SerialNumber,omitempty"`
 	PurchasedDate string `json:"PurchasedDate,omitempty"`
+	QuantityStock int    `json:"QuantityStock,omitempty"`
 
 	//brand
 	BrandId   string `json:"BrandId,omitempty"`
@@ -182,7 +183,6 @@ func (h *handler) GetAssetAssignmentById(w http.ResponseWriter, r *http.Request)
 	assignmentResponseData.AssignedToUsername = assignment.User.Username
 	assignmentResponseData.AssignedToEmail = assignment.User.Email
 	assignmentResponseData.AssignedToRole = assignment.User.Role
-
 	//user whos assign
 	assignmentResponseData.AssignedById = assignment.AssignedById
 	assignmentResponseData.AssignedByUsername = assignment.AssignedByUsername
@@ -191,19 +191,19 @@ func (h *handler) GetAssetAssignmentById(w http.ResponseWriter, r *http.Request)
 	assignmentResponseData.AssetId = assignment.AssetId
 	assignmentResponseData.AssetName = assignment.Asset.AssetName
 	assignmentResponseData.SerialNumber = assignment.Asset.SerialNumber
+	assignmentResponseData.QuantityStock = assignment.Asset.QuantityStock
 	assignmentResponseData.PurchasedDate = pkg.ParseFromDateToString(assignment.Asset.PurchasedDate)
-
 	//Brand
 	assignmentResponseData.BrandId = assignment.Asset.BrandId
 	assignmentResponseData.BrandName = assignment.Asset.Brand.BrandName
 
 	//category
 	assignmentResponseData.CategoryId = assignment.Asset.CategoryId
-	assignmentResponseData.CategoryName = assignment.Asset.Category.CategoryName
+	assignmentResponseData.CategoryName = assignment.Asset.CategoryName
 
 	//Department
-	assignmentResponseData.DepartmentId = assignment.User.Department.DepartmentId
-	assignmentResponseData.DepartmentName = assignment.User.Department.DepartmentName
+	assignmentResponseData.DepartmentId = assignment.User.DepartmentId
+	assignmentResponseData.DepartmentName = assignment.User.DepartmentName
 	assignmentResponseData.CreatedAt = pkg.ParseFromDateToString(assignment.CreatedAt)
 	assignmentResponseData.UpdatedAt = pkg.ParseFromDateToString(assignment.UpdatedAt)
 

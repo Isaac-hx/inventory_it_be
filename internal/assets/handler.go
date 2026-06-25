@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"inventory-it/internal/pkg"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -41,7 +41,7 @@ type assetRequest struct {
 	BrandId       string `json:"brand_id"`
 	CategoryId    string `json:"category_id"`
 	Description   string `json:"description"`
-	QuantityStock string `json:"quantity_stock"`
+	QuantityStock int    `json:"quantity_stock"`
 }
 type Handler interface {
 	CreateAsset(w http.ResponseWriter, r *http.Request)
@@ -72,13 +72,12 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, err.Error(), err.Error())
 		return
 	}
-	convertToIntStock, _ := strconv.Atoi(assetDataReq.QuantityStock)
 
 	if assetDataReq.AssetName == "" || assetDataReq.SerialNumber == "" || assetDataReq.PurchasedDate == "" || assetDataReq.Status == "" || assetDataReq.BrandId == "" || assetDataReq.CategoryId == "" || assetDataReq.Description == "" {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "All fields are required!!", nil)
 		return
 	}
-	if convertToIntStock < 0 {
+	if assetDataReq.QuantityStock < 0 {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Quantity stock can't be negative!!", nil)
 	}
 	purchasedDataConvert, err := pkg.ParseFromStringToDate(assetDataReq.PurchasedDate)
@@ -90,6 +89,7 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status value", nil)
 		return
 	}
+	log.Println(purchasedDataConvert)
 	var assetData Asset
 	assetData.AssetName = assetDataReq.AssetName
 	assetData.SerialNumber = assetDataReq.SerialNumber
@@ -98,7 +98,7 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 	assetData.Description = assetDataReq.Description
-	assetData.QuantityStock = convertToIntStock
+	assetData.QuantityStock = assetData.QuantityStock
 
 	err = h.usecase.CreateAsset(r.Context(), assetData)
 	if err != nil {
@@ -215,7 +215,6 @@ func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 	assetResponseData.BrandName = asset.Brand.BrandName
 	assetResponseData.CategoryId = asset.Category.CategoryId
 	assetResponseData.CategoryName = asset.Category.CategoryName
-	fmt.Println("ini berjalan")
 	pkg.JSONResponse(w, http.StatusOK, "Asset retrieved successfully!!", assetResponseData, nil)
 }
 
@@ -234,13 +233,12 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	convertToIntStock, _ := strconv.Atoi(assetDataReq.QuantityStock)
 	if assetDataReq.AssetName == "" || assetDataReq.SerialNumber == "" || assetDataReq.PurchasedDate == "" || assetDataReq.Status == "" || assetDataReq.BrandId == "" || assetDataReq.CategoryId == "" || assetDataReq.Description == "" {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "All fields are required!!", nil)
 		return
 	}
 
-	if convertToIntStock < 0 {
+	if assetDataReq.QuantityStock < 0 {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Quantity stock can't be negative!!", nil)
 	}
 	if assetDataReq.Status != "available" && assetDataReq.Status != "assigned" && assetDataReq.Status != "maintenance" && assetDataReq.Status != "retired" {
@@ -260,7 +258,7 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 	assetData.Description = assetDataReq.Description
-	assetData.QuantityStock = convertToIntStock
+	assetData.QuantityStock = assetData.QuantityStock
 
 	err = h.usecase.UpdateAssetById(r.Context(), assetId, assetData)
 	if err != nil {
