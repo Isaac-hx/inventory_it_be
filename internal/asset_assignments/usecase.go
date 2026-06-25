@@ -8,6 +8,7 @@ import (
 	"inventory-it/internal/middleware"
 	"inventory-it/internal/pkg"
 	"inventory-it/internal/user"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ type UsecaseAssetAssingments interface {
 	CreateAssignment(ctx context.Context, assetAssignment AssetAssignment) error
 	UpdateAssignmentById(ctx context.Context, assignmentId string, updateAssignment AssetAssignment) error
 	GetAllAssignmentsData(ctx context.Context) ([]AssetAssignment, error)
+	UpdateAssignmentStatus(ctx context.Context, assignmentId string, statusAssignment AssignmentStatus) error
 }
 
 type usecase struct {
@@ -210,4 +212,39 @@ func (u *usecase) UpdateAssignmentById(ctx context.Context, assignmentId string,
 
 func (u *usecase) GetAllAssignmentsData(ctx context.Context) ([]AssetAssignment, error) {
 	return u.repo.GetAllAssignmentsData(ctx)
+}
+
+func (u *usecase) UpdateAssignmentStatus(ctx context.Context, assignmentId string, statusAssignment AssignmentStatus) error {
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	//get assignment id
+	assignment, err := u.repo.GetAssetAssignmentById(ctx, assignmentId)
+	if err != nil {
+		return err
+	}
+	log.Println(assignment.Status)
+	//update status asset
+	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Available)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	var updatedStatusAssignment AssetAssignment
+	updatedStatusAssignment.ReturnDate = &now
+	updatedStatusAssignment.Status = statusAssignment
+	//update status assignment
+	err = u.repo.UpdateStatusAssignmentByIdTx(ctx, tx, assignmentId, updatedStatusAssignment)
+	if err != nil {
+		return err
+	}
+	// 5. COMMIT TRANSAKSI (Ini yang bikin data tersimpan permanen)
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

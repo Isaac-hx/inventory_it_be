@@ -72,4 +72,13 @@ func (r *Routes) RegisterRoutes() {
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
+	pkg.ProtectedRoute(
+		r.mux,
+		"PUT",
+		"/asset-assignments/status/{assignment_id}",
+		[]string{"superuser", "admin_it"},
+		http.HandlerFunc(r.handler.UpdateAssetAssignmentStatus),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it"),
+	)
 }

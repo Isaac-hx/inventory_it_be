@@ -35,6 +35,9 @@ func (r *repository) CreateAsset(ctx context.Context, asset Asset) error {
 		INSERT INTO assets (
 			asset_id,
 			asset_name,
+			processor,
+			ram,
+			storage,
 			serial_number,
 			description,
 			purchased_date,
@@ -44,7 +47,7 @@ func (r *repository) CreateAsset(ctx context.Context, asset Asset) error {
 			category_id
 
 		)
-		VALUES (?, ?, ?, ?,?,?, ?, ?, ?)
+		VALUES (?,?, ?, ?, ?,?,?, ?, ?, ?,?,?)
 	`
 
 	_, err := r.db.ExecContext(
@@ -52,6 +55,9 @@ func (r *repository) CreateAsset(ctx context.Context, asset Asset) error {
 		query,
 		asset.AssetId,
 		asset.AssetName,
+		asset.Processor,
+		asset.Ram,
+		asset.Storage,
 		asset.SerialNumber,
 		asset.Description,
 		asset.PurchasedDate,
@@ -180,6 +186,9 @@ func (r *repository) GetAssetById(ctx context.Context, assetId string) (Asset, e
 		SELECT
 			a.asset_id,
 			a.asset_name,
+			a.processor,
+			a.ram,
+			a.storage,
 			a.serial_number,
 			a.purchased_date,
 			a.status,
@@ -207,6 +216,9 @@ func (r *repository) GetAssetById(ctx context.Context, assetId string) (Asset, e
 	err := r.db.QueryRowContext(ctx, query, assetId).Scan(
 		&asset.AssetId,
 		&asset.AssetName,
+		&asset.Processor,
+		&asset.Ram,
+		&asset.Storage,
 		&asset.SerialNumber,
 		&asset.PurchasedDate,
 		&asset.Status,
@@ -267,7 +279,10 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 			status = ?,
 			brand_id = ?,
 			category_id = ?,
-			description = ?
+			description = ?,
+			processor = ?,
+			ram = ?,
+			storage = ?
 		WHERE asset_id = ?
 	`
 
@@ -282,6 +297,9 @@ func (r *repository) UpdateAssetById(ctx context.Context, assetId string, asset 
 		asset.BrandId,
 		asset.CategoryId,
 		asset.Description,
+		asset.Processor,
+		asset.Ram,
+		asset.Storage,
 		assetId,
 	)
 
@@ -371,6 +389,9 @@ func (r *repository) GetAllAssetsData(ctx context.Context) ([]Asset, error) {
         SELECT
             a.asset_id,
             a.asset_name,
+			a.processor,
+			a.ram,
+			a.storage,
             a.serial_number,
             a.purchased_date,
             a.status,
@@ -409,6 +430,9 @@ func (r *repository) GetAllAssetsData(ctx context.Context) ([]Asset, error) {
 		err := rows.Scan(
 			&asset.AssetId,
 			&asset.AssetName,
+			&asset.Processor,
+			&asset.Ram,
+			&asset.Storage,
 			&asset.SerialNumber,
 			&asset.PurchasedDate,
 			&asset.Status,

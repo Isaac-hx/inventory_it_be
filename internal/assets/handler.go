@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"inventory-it/internal/pkg"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -21,6 +20,9 @@ type AssetFilter struct {
 type assetResponse struct {
 	AssetId       string `json:"AssetId"`
 	AssetName     string `json:"AssetName,omitempty"`
+	Processor     string `json:"processor,omitempty"`
+	Ram           string `json:"ram,omitempty"`
+	Storage       string `json:"storage,omitempty"`
 	SerialNumber  string `json:"SerialNumber,omitempty"`
 	PurchasedDate string `json:"PurchasedDate,omitempty"`
 	Status        string `json:"Status,omitempty"`
@@ -35,6 +37,9 @@ type assetResponse struct {
 }
 type assetRequest struct {
 	AssetName     string `json:"asset_name"`
+	Processor     string `json:"processor,omitempty"`
+	Ram           string `json:"ram,omitempty"`
+	Storage       string `json:"storage,omitempty"`
 	SerialNumber  string `json:"serial_number"`
 	PurchasedDate string `json:"purchased_date"`
 	Status        string `json:"status"`
@@ -89,16 +94,18 @@ func (h *handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status value", nil)
 		return
 	}
-	log.Println(purchasedDataConvert)
 	var assetData Asset
 	assetData.AssetName = assetDataReq.AssetName
+	assetData.Processor = assetDataReq.Processor
+	assetData.Ram = assetDataReq.Ram
+	assetData.Storage = assetDataReq.Storage
 	assetData.SerialNumber = assetDataReq.SerialNumber
 	assetData.PurchasedDate = purchasedDataConvert
 	assetData.Status = AssetStatus(assetDataReq.Status)
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 	assetData.Description = assetDataReq.Description
-	assetData.QuantityStock = assetData.QuantityStock
+	assetData.QuantityStock = assetDataReq.QuantityStock
 
 	err = h.usecase.CreateAsset(r.Context(), assetData)
 	if err != nil {
@@ -165,6 +172,9 @@ func (h *handler) GetAssets(w http.ResponseWriter, r *http.Request) {
 		var asset assetResponse
 		asset.AssetId = item.AssetId
 		asset.AssetName = item.AssetName
+		asset.Processor = item.Processor
+		asset.Ram = item.Ram
+		asset.Storage = item.Storage
 		asset.Description = item.Description
 		asset.SerialNumber = item.SerialNumber
 		asset.Status = string(item.Status)
@@ -196,7 +206,7 @@ func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
 			return
 		}
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get asset!!", err)
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get asset!!", err.Error())
 		return
 	}
 
@@ -204,6 +214,9 @@ func (h *handler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 	var assetResponseData assetResponse
 	assetResponseData.AssetId = asset.AssetId
 	assetResponseData.AssetName = asset.AssetName
+	assetResponseData.Processor = asset.Processor
+	assetResponseData.Ram = asset.Ram
+	assetResponseData.Storage = asset.Storage
 	assetResponseData.Description = asset.Description
 	assetResponseData.SerialNumber = asset.SerialNumber
 	assetResponseData.QuantityStock = asset.QuantityStock
@@ -252,13 +265,16 @@ func (h *handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	var assetData Asset
 	assetData.AssetName = assetDataReq.AssetName
+	assetData.Processor = assetDataReq.Processor
+	assetData.Ram = assetDataReq.Ram
+	assetData.Storage = assetDataReq.Storage
 	assetData.SerialNumber = assetDataReq.SerialNumber
 	assetData.PurchasedDate = purchasedDataConvert
 	assetData.Status = AssetStatus(assetDataReq.Status)
 	assetData.BrandId = assetDataReq.BrandId
 	assetData.CategoryId = assetDataReq.CategoryId
 	assetData.Description = assetDataReq.Description
-	assetData.QuantityStock = assetData.QuantityStock
+	assetData.QuantityStock = assetDataReq.QuantityStock
 
 	err = h.usecase.UpdateAssetById(r.Context(), assetId, assetData)
 	if err != nil {
@@ -303,6 +319,9 @@ func (h *handler) GetAllAssetsData(w http.ResponseWriter, r *http.Request) {
 		var asset assetResponse
 		asset.AssetId = item.AssetId
 		asset.AssetName = item.AssetName
+		asset.Processor = item.Processor
+		asset.Ram = item.Ram
+		asset.Storage = item.Storage
 		asset.Description = item.Description
 		asset.SerialNumber = item.SerialNumber
 		asset.Status = string(item.Status)

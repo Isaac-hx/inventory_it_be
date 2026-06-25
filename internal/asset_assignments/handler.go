@@ -48,6 +48,9 @@ type assetAssignmentResponse struct {
 	//asset
 	AssetId       string `json:"AssetId"`
 	AssetName     string `json:"AssetName,omitempty"`
+	Processor     string `json:"Processor,omitempty"`
+	Ram           string `json:"Ram,omitempty"`
+	Storage       string `json:"Storage,omitempty"`
 	SerialNumber  string `json:"SerialNumber,omitempty"`
 	PurchasedDate string `json:"PurchasedDate,omitempty"`
 	QuantityStock int    `json:"QuantityStock,omitempty"`
@@ -73,6 +76,7 @@ type Handler interface {
 	GetAssetAssignmentById(w http.ResponseWriter, r *http.Request)
 	CreateAssetAssignment(w http.ResponseWriter, r *http.Request) // Fix typo uppercase S
 	UpdateAssetAssignment(w http.ResponseWriter, r *http.Request)
+	UpdateAssetAssignmentStatus(w http.ResponseWriter, r *http.Request)
 }
 
 type handler struct {
@@ -154,13 +158,13 @@ func (h *handler) GetAllAssetAssignments(w http.ResponseWriter, r *http.Request)
 // 🚀 LANJUTAN KODE: GET BY ID
 func (h *handler) GetAssetAssignmentById(w http.ResponseWriter, r *http.Request) {
 	// Ambil ID dari query params (misal: /assignments?id=xxx) atau dari router library kamu
-	maintenanceId := r.PathValue("assignment_id")
-	if maintenanceId == "" {
+	assignmentId := r.PathValue("assignment_id")
+	if assignmentId == "" {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Assignment ID is required", nil)
 		return
 	}
 
-	assignment, err := h.usecase.GetAssetAssigmentById(r.Context(), maintenanceId)
+	assignment, err := h.usecase.GetAssetAssigmentById(r.Context(), assignmentId)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get assignment detail", err.Error())
 		return
@@ -190,6 +194,9 @@ func (h *handler) GetAssetAssignmentById(w http.ResponseWriter, r *http.Request)
 	//asset
 	assignmentResponseData.AssetId = assignment.AssetId
 	assignmentResponseData.AssetName = assignment.Asset.AssetName
+	assignmentResponseData.Processor = assignment.Asset.Processor
+	assignmentResponseData.Ram = assignment.Asset.Ram
+	assignmentResponseData.Storage = assignment.Asset.Storage
 	assignmentResponseData.SerialNumber = assignment.Asset.SerialNumber
 	assignmentResponseData.QuantityStock = assignment.Asset.QuantityStock
 	assignmentResponseData.PurchasedDate = pkg.ParseFromDateToString(assignment.Asset.PurchasedDate)
@@ -355,4 +362,37 @@ func (h *handler) GetAllAssignmentsData(w http.ResponseWriter, r *http.Request) 
 		assignmentsResponseData = append(assignmentsResponseData, assignment)
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Sucess retrieve data assignments", assignmentsResponseData, nil)
+}
+
+func (h *handler) UpdateAssetAssignmentStatus(w http.ResponseWriter, r *http.Request) {
+	assignmentId := r.PathValue("assignment_id")
+	if assignmentId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Assignment ID is required", nil)
+		return
+	}
+
+	var updateAssetAssignment struct {
+		Status string `json:"status,omitempty"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&updateAssetAssignment)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusBadRequest, err.Error(), err.Error())
+		return
+	}
+	if updateAssetAssignment.Status != string(Returned) {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid status request!", nil)
+		return
+	}
+
+	err = h.usecase.UpdateAssignmentStatus(r.Context(), assignmentId, Returned)
+	if errors.Is(err, sql.ErrNoRows) {
+		pkg.ErrorResponse(w, http.StatusNotFound, err.Error(), err)
+		return
+
+	}
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	pkg.JSONResponse(w, http.StatusOK, "Asset assignment status has been successfully updated!", nil, nil)
 }

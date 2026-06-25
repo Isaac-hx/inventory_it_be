@@ -18,6 +18,9 @@ const (
 type Asset struct {
 	AssetId       string
 	AssetName     string
+	Processor     string
+	Ram           string
+	Storage       string
 	SerialNumber  string
 	Description   string
 	PurchasedDate time.Time

@@ -3,7 +3,6 @@ package assetassignments
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"inventory-it/internal/pkg"
 	"math"
 )
@@ -15,6 +14,7 @@ type Repository interface {
 	UpdateAssetAssignmentByIdTx(context.Context, *sql.Tx, string, AssetAssignment) error
 	GetTotalPageAndTotalDataAssetAssignments(context.Context, AssetAssignmentFilter) (pkg.PaginationMeta, error)
 	GetAllAssignmentsData(context.Context) ([]AssetAssignment, error)
+	UpdateStatusAssignmentByIdTx(context.Context, *sql.Tx, string, AssetAssignment) error
 }
 
 type repository struct {
@@ -72,6 +72,9 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
     aa.updated_at,
 
     a.asset_name,
+	a.processor,
+	a.ram,
+	a.storage,
     a.serial_number,
 	a.quantity_stock,
 
@@ -125,6 +128,9 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 		&assetAssignment.UpdatedAt,
 
 		&assetAssignment.Asset.AssetName,
+		&assetAssignment.Asset.Processor,
+		&assetAssignment.Asset.Ram,
+		&assetAssignment.Asset.Storage,
 		&assetAssignment.Asset.SerialNumber,
 		&assetAssignment.Asset.QuantityStock,
 		&assetAssignment.Asset.BrandId,
@@ -181,7 +187,7 @@ func (r *repository) GetAllAssetAssignments(
 		query += `
 			AND (
 				a.asset_name LIKE ?
-				
+
 			)
 		`
 
@@ -318,7 +324,6 @@ func (r *repository) UpdateAssetAssignmentByIdTx(ctx context.Context, tx *sql.Tx
 	WHERE assignment_id = ?
 
 	`
-	fmt.Println(updatedAssignment.Status)
 
 	_, err := tx.ExecContext(ctx, query,
 		updatedAssignment.AssetId,
@@ -440,4 +445,24 @@ func (r *repository) GetAllAssignmentsData(ctx context.Context) ([]AssetAssignme
 	}
 
 	return assignments, nil
+}
+
+func (r *repository) UpdateStatusAssignmentByIdTx(ctx context.Context, tx *sql.Tx, assignmentId string, assignment AssetAssignment) error {
+	query :=
+		`
+		UPDATE asset_assignments 
+		SET status = ?,
+		return_date = ?
+		WHERE assignment_id = ?
+	`
+
+	_, err := tx.ExecContext(ctx, query,
+		assignment.Status,
+		assignment.ReturnDate,
+		assignmentId,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
