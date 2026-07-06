@@ -13,6 +13,7 @@ import (
 type Usecase interface {
 	Register(ctx context.Context, user User) (User, error)
 	Login(ctx context.Context, email, password string) (User, string, error)
+	UpdatePasswordById(ctx context.Context, userId string, newPassword string) error
 }
 
 type usecase struct {
@@ -98,4 +99,9 @@ func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (
 	}
 
 	return userRegistered, token, nil
+}
+
+func (u *usecase) UpdatePasswordById(ctx context.Context, userId string, newPassword string) error {
+	hashedNewPassword := pkg.NewHashingPassword(newPassword)
+	return u.repo.UpdatePasswordById(ctx, userId, hashedNewPassword)
 }

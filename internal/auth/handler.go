@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"inventory-it/internal/pkg"
 	"net/http"
 )
@@ -17,10 +19,15 @@ type userRequest struct {
 	Role          string `json:"role"`
 	Department_id string `json:"department_id"`
 }
+type resetPasswordRequest struct {
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
 
 type Handler interface {
 	Register(w http.ResponseWriter, r *http.Request)
 	Login(w http.ResponseWriter, r *http.Request)
+	ResetPassword(w http.ResponseWriter, r *http.Request)
 }
 
 type handler struct {
@@ -48,7 +55,7 @@ func (h *handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(user.Username) < 5 {
-		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 5 characters!!", nil)
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Username must be at least 8 characters!!", nil)
 		return
 	}
 
@@ -137,4 +144,49 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 	userResp.User.Username = userRegistered.Username
 	userResp.Token = token
 	pkg.JSONResponse(w, http.StatusOK, "Login successful", userResp, nil)
+}
+
+func (h *handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	userId := r.PathValue("user_id")
+	if userId == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "User ID is required!!", nil)
+		return
+	}
+
+	// 1. Batasi ukuran body request untuk mencegah serangan DoS (Denial of Service)
+	// 1MB sudah sangat lebih dari cukup untuk request JSON sederhana
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var resetPassword resetPasswordRequest
+	err := json.NewDecoder(r.Body).Decode(&resetPassword)
+	if err != nil {
+		// Jangan mengembalikan pesan error internal/sistem mentah-mentah ke user
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	// 2. Validasi input (Sangat krusial untuk password baru)
+	if resetPassword.Password == "" {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Password cannot be empty", nil)
+		return
+	}
+
+	if resetPassword.Password != resetPassword.ConfirmPassword {
+		pkg.ErrorResponse(w, http.StatusBadRequest, "Password does not match!!", nil)
+		return
+	}
+
+	err = h.usecase.UpdatePasswordById(r.Context(), userId, resetPassword.Password)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			pkg.ErrorResponse(w, http.StatusNotFound, "Error User ID not found!", nil)
+			return
+		}
+		// 3. Ubah Status Code ke 500 jika terjadi internal error di database/usecase
+		// Dan jangan ekspos pesan error sistem ke user publik
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Internal server error", err.Error())
+		return
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Success reset password!!", nil, nil)
 }

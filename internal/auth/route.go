@@ -32,5 +32,12 @@ func (r *Routes) RegisterRoutes() {
 		http.HandlerFunc(r.handler.Register),
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser"))
+	pkg.ProtectedRoute(
+		r.mux, "PUT",
+		"/reset-password/{user_id}",
+		[]string{"superuser"},
+		http.HandlerFunc(r.handler.ResetPassword),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser"))
 
 }

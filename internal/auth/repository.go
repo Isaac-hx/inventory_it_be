@@ -11,6 +11,7 @@ type Repository interface {
 	Create(ctx context.Context, u *User) error
 	FindByEmail(ctx context.Context, email string) (User, bool, error)
 	FindByUsername(ctx context.Context, username string) (User, bool, error)
+	UpdatePasswordById(ctx context.Context, userId string, newPassword string) error
 }
 
 // Abstraction for databse object
@@ -57,4 +58,16 @@ func (r *repository) FindByUsername(ctx context.Context, username string) (User,
 		return User{}, false, err
 	}
 	return user, true, nil
+}
+
+func (r *repository) UpdatePasswordById(ctx context.Context, userId string, newPassword string) error {
+	query := `
+		UPDATE users SET password = ? WHERE user_id = ?
+	`
+
+	_, err := r.db.ExecContext(ctx, query, newPassword, userId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
