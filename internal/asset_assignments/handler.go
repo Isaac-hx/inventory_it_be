@@ -410,10 +410,22 @@ func (h *handler) UpdateAssetAssignmentStatus(w http.ResponseWriter, r *http.Req
 
 func (h *handler) GetAssignmentsByUserId(w http.ResponseWriter, r *http.Request) {
 	// 1. Tangkap parameter status dari query URL (?status=...)
+	var statusAssignment AssignmentStatus
 	status := r.URL.Query().Get("status")
-
+	switch status {
+	case "assigned":
+		statusAssignment = Assigned
+	case "returned":
+		statusAssignment = Returned
+	case "damaged":
+		statusAssignment = Damaged
+	case "lost":
+		statusAssignment = Lost
+	default:
+		statusAssignment = Assigned
+	}
 	// 2. Oper parameter status ke layer usecase (pastikan fungsi di usecase sudah menerima parameter ini)
-	assignments, err := h.usecase.GetAssetAssignmentByUserId(r.Context(), status)
+	assignments, err := h.usecase.GetAssetAssignmentByUserId(r.Context(), statusAssignment)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
 		return

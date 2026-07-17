@@ -21,7 +21,7 @@ type UsecaseAssetAssingments interface {
 	UpdateAssignmentById(ctx context.Context, assignmentId string, updateAssignment AssetAssignment) error
 	GetAllAssignmentsData(ctx context.Context) ([]AssetAssignment, error)
 	UpdateAssignmentStatus(ctx context.Context, assignmentId string, statusAssignment AssignmentStatus) error
-	GetAssetAssignmentByUserId(ctx context.Context, status string) ([]AssetAssignment, error)
+	GetAssetAssignmentByUserId(ctx context.Context, status AssignmentStatus) ([]AssetAssignment, error)
 }
 
 type usecase struct {
