@@ -19,6 +19,7 @@ const (
 type AssetAssignment struct {
 	AssignmentId       string
 	AssetId            string
+	Corporation        string
 	Asset              assets.Asset
 	UserId             string //user who is use to the asset
 	User               user.User

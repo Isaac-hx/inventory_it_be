@@ -4,17 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"inventory-it/internal/pkg"
+	"log"
 	"math"
 )
 
 type Repository interface {
-	CreateAssetAssignemntTx(context.Context, *sql.Tx, AssetAssignment) error
+	CreateAssignmentTx(context.Context, *sql.Tx, AssetAssignment) error
 	GetAllAssetAssignments(context.Context, AssetAssignmentFilter) ([]AssetAssignment, error)
 	GetAssetAssignmentById(context.Context, string) (AssetAssignment, error)
 	UpdateAssetAssignmentByIdTx(context.Context, *sql.Tx, string, AssetAssignment) error
 	GetTotalPageAndTotalDataAssetAssignments(context.Context, AssetAssignmentFilter) (pkg.PaginationMeta, error)
 	GetAllAssignmentsData(context.Context) ([]AssetAssignment, error)
 	UpdateStatusAssignmentByIdTx(context.Context, *sql.Tx, string, AssetAssignment) error
+	UpdateStatusAssignmentByAssetIdTx(context.Context, *sql.Tx, string, AssignmentStatus) error
+	GetAssignmentsByUserId(context.Context, string, AssignmentStatus) ([]AssetAssignment, error)
 }
 
 type repository struct {
@@ -27,18 +30,19 @@ func NewAssetAssignmentRepository(db *sql.DB) Repository {
 	}
 }
 
-func (r *repository) CreateAssetAssignemntTx(ctx context.Context, tx *sql.Tx, assetAssignment AssetAssignment) error {
+func (r *repository) CreateAssignmentTx(ctx context.Context, tx *sql.Tx, assetAssignment AssetAssignment) error {
 	query := `
 		INSERT INTO asset_assignments (
 			assignment_id,
 			asset_id,
 			user_id,
+			corporation,
 			assigned_by,
 			status,
 			notes,
 			assigned_date
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?,?, ?, ?, ?)
 	`
 	_, err := tx.ExecContext(
 		ctx,
@@ -46,6 +50,7 @@ func (r *repository) CreateAssetAssignemntTx(ctx context.Context, tx *sql.Tx, as
 		assetAssignment.AssignmentId,
 		assetAssignment.AssetId,
 		assetAssignment.UserId,
+		assetAssignment.Corporation,
 		assetAssignment.AssignedById,
 		assetAssignment.Status,
 		assetAssignment.Notes,
@@ -70,6 +75,7 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
     aa.return_date,
     aa.created_at,
     aa.updated_at,
+	aa.corporation,
 
     a.asset_name,
 	a.processor,
@@ -126,6 +132,7 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 		&assetAssignment.ReturnDate,
 		&assetAssignment.CreatedAt,
 		&assetAssignment.UpdatedAt,
+		&assetAssignment.Corporation,
 
 		&assetAssignment.Asset.AssetName,
 		&assetAssignment.Asset.Processor,
@@ -164,9 +171,12 @@ func (r *repository) GetAllAssetAssignments(
 			aa.assigned_by,
 			aa.status,
 			aa.assigned_date,
+			aa.corporation,
 
 			a.asset_name,
-
+			a.ram,
+			a.processor,
+			a.storage,
 
 			u.username,
 
@@ -242,7 +252,11 @@ func (r *repository) GetAllAssetAssignments(
 			&assetAssignment.AssignedById,
 			&assetAssignment.Status,
 			&assetAssignment.AssignedDate,
+			&assetAssignment.Corporation,
 			&assetAssignment.Asset.AssetName,
+			&assetAssignment.Asset.Ram,
+			&assetAssignment.Asset.Processor,
+			&assetAssignment.Asset.Storage,
 			&assetAssignment.User.Username,
 			&assetAssignment.AssignedByUsername,
 		)
@@ -319,6 +333,7 @@ func (r *repository) UpdateAssetAssignmentByIdTx(ctx context.Context, tx *sql.Tx
 	asset_id = ?,
 	status = ?,
 	user_id = ?,
+	Corporation = ?,
 	notes = ?,
 	return_date = ?
 	WHERE assignment_id = ?
@@ -329,6 +344,7 @@ func (r *repository) UpdateAssetAssignmentByIdTx(ctx context.Context, tx *sql.Tx
 		updatedAssignment.AssetId,
 		updatedAssignment.Status,
 		updatedAssignment.UserId,
+		updatedAssignment.Corporation,
 		updatedAssignment.Notes,
 		updatedAssignment.ReturnDate,
 		assignmentId,
@@ -352,6 +368,7 @@ func (r *repository) GetAllAssignmentsData(ctx context.Context) ([]AssetAssignme
         aa.return_date,
         aa.created_at,
         aa.updated_at,
+		aa.corporation,
 
         a.asset_id,        -- Ditambahkan koma yang kurang dari kode sebelumnya
         a.asset_name,
@@ -406,6 +423,7 @@ func (r *repository) GetAllAssignmentsData(ctx context.Context) ([]AssetAssignme
 			&aa.ReturnDate,
 			&aa.CreatedAt,
 			&aa.UpdatedAt,
+			aa.Corporation,
 
 			// Relasi Asset (SEKARANG SUDAH SINKRON)
 			&aa.Asset.AssetId, // <-- TAMBAHKAN BARIS INI DI SINI
@@ -460,6 +478,130 @@ func (r *repository) UpdateStatusAssignmentByIdTx(ctx context.Context, tx *sql.T
 		assignment.Status,
 		assignment.ReturnDate,
 		assignmentId,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (r *repository) GetAssignmentsByUserId(ctx context.Context, userId string, status AssignmentStatus) ([]AssetAssignment, error) {
+	// Menambahkan filter status ke dalam WHERE clause menggunakan AND
+	log.Println(userId)
+	query := `
+    SELECT
+        aa.assignment_id,
+        aa.asset_id,
+        aa.user_id,
+        aa.assigned_by,
+        aa.status,
+        aa.notes,
+        aa.assigned_date,
+        aa.return_date,
+        COALESCE(aa.corporation, '') AS corporation,
+        aa.created_at,
+        aa.updated_at,
+
+        a.asset_id,
+        a.asset_name,
+        a.serial_number,
+        a.purchased_date,
+        a.brand_id,
+        a.category_id,
+
+        b.brand_id,
+        b.brand_name,
+
+        c.category_id,
+        c.category_name,
+
+        u.username AS assigned_to_username,
+        u.email,
+        u.password,
+        u.role, 
+        COALESCE(dept.department_id, '') AS department_id,
+        COALESCE(dept.department_name, '') AS department_name,
+
+        admin.username AS assigned_by_username
+    FROM asset_assignments aa
+    INNER JOIN assets a ON aa.asset_id = a.asset_id
+    INNER JOIN brands b ON a.brand_id = b.brand_id
+    INNER JOIN categories c ON a.category_id = c.category_id
+    INNER JOIN users u ON aa.user_id = u.user_id
+    INNER JOIN users admin ON aa.assigned_by = admin.user_id
+    LEFT JOIN departments dept ON u.department_id = dept.department_id
+    WHERE aa.user_id = ? AND aa.status = ?` // <- Ditambahkan di sini
+
+	// Passing userId dan status secara berurutan sesuai tanda tanya (?) di query
+	rows, err := r.db.QueryContext(ctx, query, userId, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	log.Println(rows)
+	var assignments []AssetAssignment
+
+	for rows.Next() {
+		var aa AssetAssignment
+
+		// Scan tetap presisi tanpa ada perubahan urutan kolom
+		err := rows.Scan(
+			&aa.AssignmentId,
+			&aa.AssetId,
+			&aa.UserId,
+			&aa.AssignedById,
+			&aa.Status,
+			&aa.Notes,
+			&aa.AssignedDate,
+			&aa.ReturnDate,
+			&aa.Corporation,
+			&aa.CreatedAt,
+			&aa.UpdatedAt,
+
+			&aa.Asset.AssetId,
+			&aa.Asset.AssetName,
+			&aa.Asset.SerialNumber,
+			&aa.Asset.PurchasedDate,
+			&aa.Asset.BrandId,
+			&aa.Asset.CategoryId,
+
+			&aa.Asset.Brand.BrandId,
+			&aa.Asset.Brand.BrandName,
+
+			&aa.Asset.Category.CategoryId,
+			&aa.Asset.Category.CategoryName,
+
+			&aa.User.Username,
+			&aa.User.Email,
+			&aa.User.Password,
+			&aa.User.Role,
+			&aa.User.Department.DepartmentId,
+			&aa.User.Department.DepartmentName,
+			&aa.AssignedByUsername,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		assignments = append(assignments, aa)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	log.Println(assignments)
+	return assignments, nil
+}
+func (r *repository) UpdateStatusAssignmentByAssetIdTx(ctx context.Context, tx *sql.Tx, assetId string, status AssignmentStatus) error {
+	query :=
+		`
+		UPDATE asset_assignments 
+		SET status = ?
+		WHERE asset_id = ?
+	`
+
+	_, err := tx.ExecContext(ctx, query,
+		status,
+		assetId,
 	)
 	if err != nil {
 		return err

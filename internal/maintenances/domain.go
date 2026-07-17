@@ -1,9 +1,11 @@
 package maintenances
 
 import (
+	assetassignments "inventory-it/internal/asset_assignments"
 	"inventory-it/internal/assets"
 	"inventory-it/internal/brands"
 	"inventory-it/internal/categories"
+	"inventory-it/internal/user"
 	"time"
 )
 
@@ -21,12 +23,13 @@ type Maintenance struct {
 	Description   string
 	Cost          int64
 	Status        MaintenanceStatus
-	AssetId       string
 	MaintenanceAt time.Time
 	CompletedAt   *time.Time
-	Asset         assets.Asset
-	Brand         brands.Brand
+	Assignment    assetassignments.AssetAssignment
 	Category      categories.Categories
+	Brand         brands.Brand
+	Asset         assets.Asset
+	User          user.User // Tambahkan struct User untuk CreateRequest & GetAllMaintenancesByUserId
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

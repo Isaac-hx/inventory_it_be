@@ -17,6 +17,8 @@ type Repository interface {
 	GetTotalPageAndTotalDataMaintenances(context.Context, MaintenanceFilter) (pkg.PaginationMeta, error)
 	UpdateMaintenanceTx(context.Context, *sql.Tx, string, Maintenance) error
 	GetAllMaintenancesData(context.Context) ([]Maintenance, error)
+	CreateRequest(context.Context, Maintenance) error
+	GetAllMaintenancesByUserId(context.Context, string) ([]Maintenance, error)
 }
 
 type MaintenanceRepository struct {
@@ -29,18 +31,17 @@ func NewMaintenanceRepository(db *sql.DB) Repository {
 
 func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintenanceFilter MaintenanceFilter) ([]Maintenance, error) {
 	query := `
-		SELECT 
+		SELECT
 			m.maintenance_id,
 			m.description,
 			m.cost,
 			m.status,
-			m.asset_id,
+			m.assignment_id,
 			m.maintenance_at,
 			m.completed_at,
 
 			a.asset_id,
 			a.asset_name,
-
 
 			b.brand_id,
 			b.brand_name,
@@ -48,24 +49,16 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 			c.category_id,
 			c.category_name
 		FROM maintenances m
-		INNER JOIN assets a
-			ON m.asset_id = a.asset_id
-		INNER JOIN brands b
-			ON a.brand_id = b.brand_id
-		INNER JOIN categories c
-			ON a.category_id = c.category_id
+		INNER JOIN asset_assignments aa ON m.assignment_id = aa.assignment_id
+		INNER JOIN assets a ON aa.asset_id = a.asset_id
+		INNER JOIN brands b ON a.brand_id = b.brand_id
+		INNER JOIN categories c ON a.category_id = c.category_id
 		WHERE 1=1
 	`
 	args := []any{}
 
 	if maintenanceFilter.Search != "" {
-		query += `
-			AND (
-				a.asset_name LIKE ?
-
-			)
-		`
-
+		query += ` AND (a.asset_name LIKE ?) `
 		search := "%" + maintenanceFilter.Search + "%"
 		args = append(args, search)
 	}
@@ -87,8 +80,8 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 	default:
 		query += ` ORDER BY m.created_at DESC `
 	}
-	offset := (maintenanceFilter.Page - 1) * maintenanceFilter.Limit
 
+	offset := (maintenanceFilter.Page - 1) * maintenanceFilter.Limit
 	query += ` LIMIT ? OFFSET ? `
 	args = append(args, maintenanceFilter.Limit, offset)
 
@@ -98,36 +91,39 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 	}
 	defer rows.Close()
 
+	// Inisialisasi slice kosong biar gak nge-return nil ke JSON parser frontend
 	maintenances := []Maintenance{}
-	var completedAt sql.NullTime
+
 	for rows.Next() {
-		var maintenance Maintenance
+		var m Maintenance
+		var completedAt sql.NullTime
 
 		err := rows.Scan(
-			&maintenance.MaintenanceId,
-			&maintenance.Description,
-			&maintenance.Cost,
-			&maintenance.Status,
-			&maintenance.AssetId,
-			&maintenance.MaintenanceAt,
+			&m.MaintenanceId,
+			&m.Description,
+			&m.Cost,
+			&m.Status,
+			&m.Assignment.AssignmentId, // Pas di urutan m.assignment_id
+			&m.MaintenanceAt,
 			&completedAt,
-			&maintenance.Asset.AssetId,
-			&maintenance.Asset.AssetName,
-			&maintenance.Brand.BrandId,
-			&maintenance.Brand.BrandName,
-			&maintenance.Category.CategoryId,
-			&maintenance.Category.CategoryName,
+			&m.Asset.AssetId,
+			&m.Asset.AssetName,
+			&m.Brand.BrandId,
+			&m.Brand.BrandName,
+			&m.Category.CategoryId,
+			&m.Category.CategoryName,
 		)
-		if completedAt.Valid {
-			maintenance.CompletedAt = &completedAt.Time
-		} else {
-			maintenance.CompletedAt = nil
-		}
 		if err != nil {
 			return nil, err
 		}
 
-		maintenances = append(maintenances, maintenance)
+		if completedAt.Valid {
+			m.CompletedAt = &completedAt.Time
+		} else {
+			m.CompletedAt = nil
+		}
+
+		maintenances = append(maintenances, m)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -139,17 +135,18 @@ func (r *MaintenanceRepository) GetAllMaintenances(ctx context.Context, maintena
 
 func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, maintenance_id string) (Maintenance, error) {
 	query := `
-		SELECT 
+		SELECT
 			m.maintenance_id,
 			m.description,
 			m.cost,
 			m.status,
-			m.asset_id,
+			m.assignment_id, -- Menggunakan assignment_id sesuai relasi table terbaru
 			m.maintenance_at,
 			m.completed_at,
 			m.created_at,
 			m.updated_at,
 
+			a.asset_id,      -- Ditambahkan agar struct m.Asset.AssetId terisi dengan benar
 			a.asset_name,
 			a.serial_number,
 
@@ -159,97 +156,72 @@ func (r *MaintenanceRepository) GetMaintenanceById(ctx context.Context, maintena
 			c.category_id,
 			c.category_name
 		FROM maintenances m
-		INNER JOIN assets a
-			ON m.asset_id = a.asset_id
-		INNER JOIN brands b
-			ON a.brand_id = b.brand_id
-		INNER JOIN categories c
-			ON a.category_id = c.category_id
+		INNER JOIN asset_assignments aa ON m.assignment_id = aa.assignment_id
+		INNER JOIN assets a ON aa.asset_id = a.asset_id
+		INNER JOIN brands b ON a.brand_id = b.brand_id
+		INNER JOIN categories c ON a.category_id = c.category_id
 		WHERE m.maintenance_id = ?
 	`
-
 	row := r.db.QueryRowContext(ctx, query, maintenance_id)
 
-	var maintenance Maintenance
+	var m Maintenance
 	var completedAt sql.NullTime
 
 	err := row.Scan(
-		&maintenance.MaintenanceId,
-		&maintenance.Description,
-		&maintenance.Cost,
-		&maintenance.Status,
-		&maintenance.AssetId,
-		&maintenance.MaintenanceAt,
+		&m.MaintenanceId,
+		&m.Description,
+		&m.Cost,
+		&m.Status,
+		&m.Assignment.AssignmentId, // Menampung m.assignment_id
+		&m.MaintenanceAt,
 		&completedAt,
-		&maintenance.CreatedAt,
-		&maintenance.UpdatedAt,
-		&maintenance.Asset.AssetName,
-		&maintenance.Asset.SerialNumber,
-		&maintenance.Brand.BrandId,
-		&maintenance.Brand.BrandName,
-		&maintenance.Category.CategoryId,
-		&maintenance.Category.CategoryName,
+		&m.CreatedAt,
+		&m.UpdatedAt,
+		&m.Asset.AssetId, // Menampung a.asset_id asli
+		&m.Asset.AssetName,
+		&m.Asset.SerialNumber,
+		&m.Brand.BrandId,
+		&m.Brand.BrandName,
+		&m.Category.CategoryId,
+		&m.Category.CategoryName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return Maintenance{}, nil
+			return Maintenance{}, nil // Atau return custom error ErrNotFound jika dibutuhkan
 		}
 		return Maintenance{}, err
 	}
 
 	if completedAt.Valid {
-		maintenance.CompletedAt = &completedAt.Time
+		m.CompletedAt = &completedAt.Time
 	} else {
-		maintenance.CompletedAt = nil
+		m.CompletedAt = nil
 	}
 
-	return maintenance, nil
+	return m, nil
 }
 
-func (r *MaintenanceRepository) CreateMaintenanceTx(
-	ctx context.Context,
-	tx *sql.Tx,
-	maintenance Maintenance,
-) error {
+func (r *MaintenanceRepository) CreateMaintenanceTx(ctx context.Context, tx *sql.Tx, m Maintenance) error {
 	query := `
-		INSERT INTO maintenances (
-			maintenance_id,
-			asset_id,
-			description,
-			cost,
-			status,
-			maintenance_at
-		)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`
-
-	_, err := tx.ExecContext(
-		ctx,
-		query,
-		maintenance.MaintenanceId,
-		maintenance.AssetId,
-		maintenance.Description,
-		maintenance.Cost,
-		maintenance.Status,
-		maintenance.MaintenanceAt,
-	)
-
+        INSERT INTO maintenances (
+            maintenance_id,
+            asset_id,
+            description,
+            cost,
+            status,
+            maintenance_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    `
+	_, err := tx.ExecContext(ctx, query, m.MaintenanceId, m.Asset.AssetId, m.Description, m.Cost, m.Status, m.MaintenanceAt)
 	return err
 }
 
-func (r *MaintenanceRepository) UpdateMaintenanceStatusTx(
-	ctx context.Context,
-	tx *sql.Tx,
-	maintenance_id string,
-	maintenanceUpdated Maintenance,
-) error {
+func (r *MaintenanceRepository) UpdateMaintenanceStatusTx(ctx context.Context, tx *sql.Tx, maintenance_id string, maintenanceUpdated Maintenance) error {
 	query := `
-		UPDATE maintenances
-		SET status = ?,
-		completed_at = ?
-		WHERE maintenance_id = ?
-	`
-
+        UPDATE maintenances
+        SET status = ?, completed_at = ?
+        WHERE maintenance_id = ?
+    `
 	result, err := tx.ExecContext(ctx, query, maintenanceUpdated.Status, maintenanceUpdated.CompletedAt, maintenance_id)
 	if err != nil {
 		return err
@@ -259,25 +231,14 @@ func (r *MaintenanceRepository) UpdateMaintenanceStatusTx(
 	if err != nil {
 		return err
 	}
-
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
 	return nil
 }
-func (r *MaintenanceRepository) UpdateMaintenanceCostTx(
-	ctx context.Context,
-	tx *sql.Tx,
-	maintenanceId string,
-	cost int64,
-) error {
-	query := `
-		UPDATE maintenances
-		SET cost = ?
-			WHERE maintenance_id = ?
-	`
 
+func (r *MaintenanceRepository) UpdateMaintenanceCostTx(ctx context.Context, tx *sql.Tx, maintenanceId string, cost int64) error {
+	query := `UPDATE maintenances SET cost = ? WHERE maintenance_id = ?`
 	result, err := tx.ExecContext(ctx, query, cost, maintenanceId)
 	if err != nil {
 		return err
@@ -287,26 +248,14 @@ func (r *MaintenanceRepository) UpdateMaintenanceCostTx(
 	if err != nil {
 		return err
 	}
-
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
 	return nil
 }
 
-func (r *MaintenanceRepository) UpdateMaintenanceDescriptionTx(
-	ctx context.Context,
-	tx *sql.Tx,
-	maintenanceId string,
-	description string,
-) error {
-	query := `
-		UPDATE maintenances
-		SET description = ?
-			WHERE maintenance_id = ?
-	`
-
+func (r *MaintenanceRepository) UpdateMaintenanceDescriptionTx(ctx context.Context, tx *sql.Tx, maintenanceId string, description string) error {
+	query := `UPDATE maintenances SET description = ? WHERE maintenance_id = ?`
 	result, err := tx.ExecContext(ctx, query, description, maintenanceId)
 	if err != nil {
 		return err
@@ -316,39 +265,40 @@ func (r *MaintenanceRepository) UpdateMaintenanceDescriptionTx(
 	if err != nil {
 		return err
 	}
-
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
 	return nil
-
 }
 
 func (r *MaintenanceRepository) GetTotalPageAndTotalDataMaintenances(ctx context.Context, filter MaintenanceFilter) (pkg.PaginationMeta, error) {
-	// 1. Ubah SELECT menjadi COUNT untuk menghitung total baris saja
-	// Hapus JOIN ke brand dan category jika tidak digunakan untuk filter SEARCH agar query jauh lebih cepat (Ringan)
 	query := `
-        SELECT COUNT(m.maintenance_id)
-        FROM maintenances m
-        INNER JOIN assets a ON m.asset_id = a.asset_id
-        INNER JOIN brands b ON a.brand_id = b.brand_id
-        INNER JOIN categories c ON a.category_id = c.category_id
-        WHERE 1=1
-    `
+		SELECT COUNT(m.maintenance_id)
+		FROM maintenances m
+		INNER JOIN asset_assignments aa ON m.assignment_id = aa.assignment_id
+		INNER JOIN assets a ON aa.asset_id = a.asset_id
+		INNER JOIN brands b ON a.brand_id = b.brand_id
+		INNER JOIN categories c ON a.category_id = c.category_id
+		WHERE 1=1
+	`
 	args := []any{}
 
-	// 2. Pertahankan logika filter search yang sama persis agar sinkron dengan data tabel
+	// Menambahkan filter status jika ada di filter payload (opsional, tapi biasanya sinkron dengan GetAllMaintenances)
+	if filter.Status != "" {
+		query += ` AND m.status = ? `
+		args = append(args, filter.Status)
+	}
+
 	if filter.Search != "" {
 		query += `
-            AND (
-                a.asset_name LIKE ?
-                OR a.serial_number LIKE ?
-                OR b.brand_name LIKE ?
-                OR c.category_name LIKE ?
-                OR m.description LIKE ?
-            )
-        `
+			AND (
+				a.asset_name LIKE ?
+				OR a.serial_number LIKE ?
+				OR b.brand_name LIKE ?
+				OR c.category_name LIKE ?
+				OR m.description LIKE ?
+			)
+		`
 		search := "%" + filter.Search + "%"
 		args = append(args, search, search, search, search, search)
 	}
@@ -356,28 +306,18 @@ func (r *MaintenanceRepository) GetTotalPageAndTotalDataMaintenances(ctx context
 	var paginationData pkg.PaginationMeta
 	var totalData int
 
-	// 3. Scan sekarang akan berjalan sukses karena kolom yang di-SELECT hanya satu (Hasil COUNT)
-	err := r.db.QueryRowContext(
-		ctx,
-		query,
-		args...,
-	).Scan(&totalData)
-
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&totalData)
 	if err != nil {
 		return paginationData, err
 	}
 
-	// 4. Hitung estimasi total halaman berdasarkan limit baris per halaman
 	var totalPage int
 	if filter.Limit > 0 {
-		totalPage = int(math.Ceil(
-			float64(totalData) / float64(filter.Limit),
-		))
+		totalPage = int(math.Ceil(float64(totalData) / float64(filter.Limit)))
 	} else {
-		totalPage = 1 // Fallback default jika limit kosong
+		totalPage = 1
 	}
 
-	// 5. Mapping metadata pagination kembali ke domain struct
 	paginationData.Page = filter.Page
 	paginationData.Limit = filter.Limit
 	paginationData.TotalData = totalData
@@ -386,124 +326,199 @@ func (r *MaintenanceRepository) GetTotalPageAndTotalDataMaintenances(ctx context
 	return paginationData, nil
 }
 
-// UpdateMaintenanceTx memperbarui data log maintenance menggunakan context transaksi aktif
-func (r *MaintenanceRepository) UpdateMaintenanceTx(ctx context.Context, tx *sql.Tx, maintenanceID string, maintenance Maintenance) error {
+func (r *MaintenanceRepository) UpdateMaintenanceTx(ctx context.Context, tx *sql.Tx, maintenanceID string, m Maintenance) error {
 	query := `
-		UPDATE maintenances 
-		SET 
-			cost = ?, 
-			description = ?, 
-			status = ?, 
-			completed_at = ?
-		WHERE maintenance_id = ?;
-	`
-
-	// Eksekusi query menggunakan objek transaksi 'tx', bukan 'r.db'
-	result, err := tx.ExecContext(ctx, query,
-		maintenance.Cost,
-		maintenance.Description,
-		maintenance.Status,
-		maintenance.CompletedAt, // Menggunakan pointer *time.Time agar bisa bernilai NULL di DB
-		maintenanceID,
-	)
+        UPDATE maintenances
+        SET cost = ?, description = ?, status = ?, completed_at = ?
+        WHERE maintenance_id = ?;
+    `
+	result, err := tx.ExecContext(ctx, query, m.Cost, m.Description, m.Status, m.CompletedAt, maintenanceID)
 	if err != nil {
 		return err
 	}
 
-	// Opsional: Memastikan ada baris data yang benar-benar terupdate
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if rowsAffected == 0 {
-		return sql.ErrNoRows // Mengembalikan error jika ID tidak ditemukan di DB
+		return sql.ErrNoRows
 	}
-
 	return nil
 }
 func (r *MaintenanceRepository) GetAllMaintenancesData(ctx context.Context) ([]Maintenance, error) {
 	query := `
-        SELECT 
-            m.maintenance_id,
-            m.description,
-            m.cost,
-            m.status,
-            m.asset_id,
-            m.maintenance_at,
-            m.completed_at,
-            m.created_at,
-            m.updated_at,
+		SELECT
+			m.maintenance_id,
+			m.description,
+			m.cost,
+			m.status,
+			m.assignment_id, -- Diubah dari m.asset_id ke m.assignment_id
+			m.maintenance_at,
+			m.completed_at,
+			m.created_at,
+			m.updated_at,
 
-            a.asset_name,
-            a.serial_number,
+			a.asset_id,      -- Ditambahkan supaya m.Asset.AssetId dapet ID aslinya
+			a.asset_name,
+			a.serial_number,
 			a.description,
 			a.purchased_date,
 
-            b.brand_id,
-            b.brand_name,
-            
-            c.category_id,
-            c.category_name
-        FROM maintenances m
-        INNER JOIN assets a
-            ON m.asset_id = a.asset_id
-        INNER JOIN brands b
-            ON a.brand_id = b.brand_id
-        INNER JOIN categories c
-            ON a.category_id = c.category_id
-    `
-	// 1. Jalankan QueryContext untuk mengambil banyak baris data (rows)
+			b.brand_id,
+			b.brand_name,
+			
+			c.category_id,
+			c.category_name
+		FROM maintenances m
+		INNER JOIN asset_assignments aa ON m.assignment_id = aa.assignment_id
+		INNER JOIN assets a ON aa.asset_id = a.asset_id
+		INNER JOIN brands b ON a.brand_id = b.brand_id
+		INNER JOIN categories c ON a.category_id = c.category_id
+	`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close() // Pastikan selalu di-close agar tidak kebocoran memori (memory leak)
+	defer rows.Close()
 
-	// 2. Siapkan slice kosong untuk menampung list maintenance
-	var maintenances []Maintenance
+	// Inisialisasi slice kosong biar ga nil pas dilempar ke front-end
+	maintenances := []Maintenance{}
 
-	// 3. Looping baris demi baris dari database
 	for rows.Next() {
 		var m Maintenance
+		var completedAt sql.NullTime
 
-		// 4. Scan data secara berurutan sesuai dengan urutan kolom di SELECT query
 		err := rows.Scan(
 			&m.MaintenanceId,
 			&m.Description,
 			&m.Cost,
 			&m.Status,
-			&m.AssetId,
+			&m.Assignment.AssignmentId, // Menampung m.assignment_id dengan benar
 			&m.MaintenanceAt,
-			&m.CompletedAt,
+			&completedAt,
 			&m.CreatedAt,
 			&m.UpdatedAt,
-
-			// Arahkan data Asset ke dalam nested struct Asset di dalam Maintenance
+			&m.Asset.AssetId, // Menampung a.asset_id asli
 			&m.Asset.AssetName,
 			&m.Asset.SerialNumber,
 			&m.Asset.Description,
 			&m.Asset.PurchasedDate,
-
-			// Arahkan data Brand & Category ke dalam nested struct milik Asset
-			&m.Asset.Brand.BrandId,
-			&m.Asset.Brand.BrandName,
-
-			&m.Asset.Category.CategoryId,
-			&m.Asset.Category.CategoryName,
+			&m.Brand.BrandId,
+			&m.Brand.BrandName,
+			&m.Category.CategoryId,
+			&m.Category.CategoryName,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		// 5. Masukkan data yang berhasil di-scan ke dalam slice utama
+		if completedAt.Valid {
+			m.CompletedAt = &completedAt.Time
+		} else {
+			m.CompletedAt = nil
+		}
+
 		maintenances = append(maintenances, m)
 	}
 
-	// 6. Cek apakah ada error yang terjadi selama proses looping berjalan
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
-	// Kembalikan semua data
+	return maintenances, nil
+}
+
+func (r *MaintenanceRepository) CreateRequest(ctx context.Context, m Maintenance) error {
+	query := `
+        INSERT INTO maintenances(maintenance_id, user_id, asset_id, description) 
+        VALUES(?, ?, ?, ?)
+    `
+	_, err := r.db.ExecContext(ctx, query, m.MaintenanceId, m.User.UserId, m.Asset.AssetId, m.Description)
+	return err
+}
+func (r *MaintenanceRepository) GetAllMaintenancesByUserId(ctx context.Context, userId string) ([]Maintenance, error) {
+	query := `
+	SELECT
+		m.maintenance_id,
+		m.status,
+		m.description,
+		m.cost,
+		m.maintenance_at,
+		m.completed_at,
+		m.created_at,
+		m.updated_at,
+		m.assignment_id, -- Diubah dari m.asset_id ke m.assignment_id
+		aa.user_id,
+		
+		a.asset_id,      -- Ditambahkan agar m.Asset.AssetId dapet ID aslinya
+		a.asset_name,
+		a.serial_number,
+		a.purchased_date,
+		a.processor,
+		a.ram,
+		a.storage,
+
+		c.category_name,
+		b.brand_name
+	FROM maintenances m
+	LEFT JOIN asset_assignments aa ON m.assignment_id = aa.assignment_id
+	LEFT JOIN assets a ON aa.asset_id = a.asset_id
+	LEFT JOIN categories c ON a.category_id = c.category_id
+	LEFT JOIN brands b ON a.brand_id = b.brand_id
+	WHERE aa.user_id = ?
+	ORDER BY m.maintenance_at DESC;
+	`
+	rows, err := r.db.QueryContext(ctx, query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Inisialisasi slice kosong agar tidak me-return null ke front-end
+	maintenances := []Maintenance{}
+
+	for rows.Next() {
+		var m Maintenance
+		var completedAt sql.NullTime
+
+		err := rows.Scan(
+			&m.MaintenanceId,
+			&m.Status,
+			&m.Description,
+			&m.Cost,
+			&m.MaintenanceAt,
+			&completedAt,
+			&m.CreatedAt,
+			&m.UpdatedAt,
+			&m.Assignment.AssignmentId, // Menampung m.assignment_id
+			&m.User.UserId,             // Menampung m.user_id langsung ke field UserId utama
+			&m.Asset.AssetId,           // Menampung a.asset_id asli
+			&m.Asset.AssetName,
+			&m.Asset.SerialNumber,
+			&m.Asset.PurchasedDate,
+			&m.Asset.Processor,
+			&m.Asset.Ram,
+			&m.Asset.Storage,
+			&m.Category.CategoryName,
+			&m.Brand.BrandName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if completedAt.Valid {
+			m.CompletedAt = &completedAt.Time
+		} else {
+			m.CompletedAt = nil
+		}
+
+		maintenances = append(maintenances, m)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return maintenances, nil
 }

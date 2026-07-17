@@ -21,6 +21,7 @@ type UsecaseAssetAssingments interface {
 	UpdateAssignmentById(ctx context.Context, assignmentId string, updateAssignment AssetAssignment) error
 	GetAllAssignmentsData(ctx context.Context) ([]AssetAssignment, error)
 	UpdateAssignmentStatus(ctx context.Context, assignmentId string, statusAssignment AssignmentStatus) error
+	GetAssetAssignmentByUserId(ctx context.Context, status string) ([]AssetAssignment, error)
 }
 
 type usecase struct {
@@ -124,10 +125,11 @@ func (u *usecase) CreateAssignment(ctx context.Context, assetAssignment AssetAss
 		AssignedDate: assetAssignment.AssignedDate,
 		Status:       assetAssignment.Status,
 		Notes:        assetAssignment.Notes,
+		Corporation:  assetAssignment.Corporation,
 	}
 
 	// 6. Eksekusi query ke repository
-	err = u.repo.CreateAssetAssignemntTx(ctx, tx, assetAssignmentData)
+	err = u.repo.CreateAssignmentTx(ctx, tx, assetAssignmentData)
 	if err != nil {
 		return err
 	}
@@ -161,6 +163,7 @@ func (u *usecase) UpdateAssignmentById(ctx context.Context, assignmentId string,
 	updatedAssetAssignmentData.UserId = currentAssignment.UserId
 	updatedAssetAssignmentData.Notes = updateAssignment.Notes
 	updatedAssetAssignmentData.Status = updateAssignment.Status
+	updatedAssetAssignmentData.Corporation = updateAssignment.Corporation
 	updatedAssetAssignmentData.ReturnDate = currentAssignment.ReturnDate // Default pakai data lama
 
 	// 4. Logika Perubahan Status Menggunakan Switch Case
@@ -247,4 +250,18 @@ func (u *usecase) UpdateAssignmentStatus(ctx context.Context, assignmentId strin
 		return err
 	}
 	return nil
+}
+
+func (u *usecase) GetAssetAssignmentByUserId(ctx context.Context, status AssignmentStatus) ([]AssetAssignment, error) {
+	rawClaims := ctx.Value(middleware.Claimskey)
+	if rawClaims == nil {
+		return nil, errors.New("unauthorized: user data is not valid")
+	}
+
+	claim, ok := rawClaims.(*pkg.Claims)
+	if !ok {
+		return nil, errors.New("unauthorized: format claims is not valid")
+	}
+
+	return u.repo.GetAssignmentsByUserId(ctx, claim.UserID, status)
 }

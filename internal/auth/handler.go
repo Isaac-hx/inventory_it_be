@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"inventory-it/internal/pkg"
+	"log"
 	"net/http"
 )
 
@@ -13,11 +14,12 @@ type userResponse struct {
 	Token string `json:"token"`
 }
 type userRequest struct {
-	Username      string `json:"username"`
-	Email         string `json:"email"`
-	Password      string `json:"password"`
-	Role          string `json:"role"`
-	Department_id string `json:"department_id"`
+	Username        string `json:"username"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	Role            string `json:"role"`
+	Department_id   string `json:"department_id"`
+	Department_name string `json:"department_name,omitempty"`
 }
 type resetPasswordRequest struct {
 	Password        string `json:"password"`
@@ -140,9 +142,11 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 	userResp.User.UserId = userRegistered.UserId
 	userResp.User.Email = userRegistered.Email
 	userResp.User.Department_id = userRegistered.Department_id
+	userResp.User.Department.DepartmentName = userRegistered.Department.DepartmentName
 	userResp.User.Role = userRegistered.Role
 	userResp.User.Username = userRegistered.Username
 	userResp.Token = token
+	log.Println(userResp.User.Department)
 	pkg.JSONResponse(w, http.StatusOK, "Login successful", userResp, nil)
 }
 

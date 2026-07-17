@@ -77,4 +77,23 @@ func (r *Routes) RegisterRoutes() {
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
 
+	pkg.ProtectedRoute(
+		r.mux,
+		"POST",
+		"/maintenances/request",
+		[]string{"superuser", "admin_it", "user"},
+		http.HandlerFunc(r.handler.CreateRequest),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it", "user"),
+	)
+
+	pkg.ProtectedRoute(
+		r.mux,
+		"GET",
+		"/maintenances/users",
+		[]string{"superuser", "admin_it", "user"},
+		http.HandlerFunc(r.handler.GetAllMaintenancesByUserId),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it", "user"),
+	)
 }

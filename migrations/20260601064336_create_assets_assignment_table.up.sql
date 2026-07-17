@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS asset_assignments (
     assignment_id VARCHAR(50) PRIMARY KEY,
-    status ENUM('assigned', 'returned', 'damaged', 'lost') NOT NULL DEFAULT 'returned',
+    status ENUM('assigned', 'returned', 'lost') NOT NULL DEFAULT 'returned',
     corporation VARCHAR(50) NULL,
     notes TEXT NOT NULL,
     asset_id VARCHAR(50) NOT NULL,

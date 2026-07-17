@@ -81,4 +81,13 @@ func (r *Routes) RegisterRoutes() {
 		middleware.JWTMiddleware(r.jwtConfig),
 		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
+	pkg.ProtectedRoute(
+		r.mux,
+		"GET",
+		"/history-assignments",
+		[]string{"superuser", "admin_it", "user"},
+		http.HandlerFunc(r.handler.GetAssignmentsByUserId),
+		middleware.JWTMiddleware(r.jwtConfig),
+		middleware.RBACMiddleware("superuser", "admin_it", "user"))
+
 }

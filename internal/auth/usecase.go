@@ -90,6 +90,7 @@ func (u *usecase) Login(ctx context.Context, usernameOrEmail, password string) (
 		userRegistered.Role,
 		userRegistered.Email,
 		userRegistered.Username,
+		userRegistered.Department.DepartmentName,
 	)
 	loginResp.User = userRegistered
 	loginResp.Token = token

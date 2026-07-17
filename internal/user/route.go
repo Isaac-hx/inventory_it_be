@@ -24,19 +24,19 @@ func (r *Routes) RegisterRoutes() {
 		r.mux,
 		"GET",
 		"/users",
-		[]string{"superuser"},
+		[]string{"superuser", "admin_it"},
 		http.HandlerFunc(r.handler.GetAllUsers),
 		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser"),
+		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
 	pkg.ProtectedRoute(
 		r.mux,
 		"GET",
 		"/users/{user_id}",
-		[]string{"superuser"},
+		[]string{"superuser", "admin_it"},
 		http.HandlerFunc(r.handler.GetUserById),
 		middleware.JWTMiddleware(r.jwtConfig),
-		middleware.RBACMiddleware("superuser"),
+		middleware.RBACMiddleware("superuser", "admin_it"),
 	)
 
 	pkg.ProtectedRoute(

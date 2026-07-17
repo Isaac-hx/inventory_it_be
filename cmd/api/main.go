@@ -63,15 +63,14 @@ func main() {
 	assetUsecase := assets.NewAssetUsecase(assetRepo)
 	assetHandler := assets.NewAssetHandler(assetUsecase)
 
-	//Iniate domain maintenances
-	maintenanceRepo := maintenances.NewMaintenanceRepository(db)
-	maintenanceUsecase := maintenances.NewMaintenanceUsecase(db, maintenanceRepo, assetRepo)
-	maintenanceHandler := maintenances.NewMaintenanceHandler(maintenanceUsecase)
-
 	//Iniate domain asset assignments
 	assetAssignmentRepo := assetassignments.NewAssetAssignmentRepository(db)
 	assetAssignmentUsecase := assetassignments.NewUsecaseAssetAssignment(db, assetAssignmentRepo, assetRepo, userRepo)
 	assetAssignmentHandler := assetassignments.NewHandlerAssetAssignments(assetAssignmentUsecase)
+	//Iniate domain maintenances
+	maintenanceRepo := maintenances.NewMaintenanceRepository(db)
+	maintenanceUsecase := maintenances.NewMaintenanceUsecase(db, maintenanceRepo, assetRepo, assetAssignmentRepo)
+	maintenanceHandler := maintenances.NewMaintenanceHandler(maintenanceUsecase)
 
 	//iniate router
 	mux := http.NewServeMux()

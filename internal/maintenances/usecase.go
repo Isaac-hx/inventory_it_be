@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"inventory-it/internal/assets"
-	"inventory-it/internal/pkg"
 	"time"
+
+	assetassignments "inventory-it/internal/asset_assignments"
+	"inventory-it/internal/assets"
+	"inventory-it/internal/middleware"
+	"inventory-it/internal/pkg"
 
 	"github.com/google/uuid"
 )
@@ -19,88 +22,98 @@ type Usecase interface {
 	CreateMaintenance(context.Context, Maintenance) (Maintenance, error)
 	UpdateMaintenance(context.Context, string, Maintenance) error
 	UpdateStatusMaintenance(context.Context, string, string, *time.Time) error
+	CreateRequest(context.Context, Maintenance) error
+	GetAllMaintenancesByUserId(context.Context) ([]Maintenance, error)
 }
 
 type usecase struct {
-	db        *sql.DB
-	repo      Repository
-	assetRepo assets.Repository
+	db                   *sql.DB
+	repo                 Repository
+	assetRepo            assets.Repository
+	assetassignmentsRepo assetassignments.Repository
 }
 
-func NewMaintenanceUsecase(db *sql.DB, repo Repository, assetRepo assets.Repository) Usecase {
+func NewMaintenanceUsecase(
+	db *sql.DB,
+	repo Repository,
+	assetRepo assets.Repository,
+	assignmentRepo assetassignments.Repository,
+) Usecase {
 	return &usecase{
-		db:        db,
-		repo:      repo,
-		assetRepo: assetRepo,
+		db:                   db,
+		repo:                 repo,
+		assetRepo:            assetRepo,
+		assetassignmentsRepo: assignmentRepo,
 	}
 }
 
 func (u *usecase) CreateMaintenance(ctx context.Context, maintenance Maintenance) (Maintenance, error) {
-
-	// Start a transaction
+	// 1. Mulai transaksi database
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Maintenance{}, err
 	}
-	//if set instruction is error, rollback
 	defer tx.Rollback()
 
-	//call search asset by id with transaction
-	asset, err := u.assetRepo.GetAssetById(ctx, maintenance.AssetId)
+	// 2. Ambil data Assignment berdasarkan AssignmentId, bukan lagi langsung via AssetId
+	assignment, err := u.assetassignmentsRepo.GetAssetAssignmentById(ctx, maintenance.Assignment.AssignmentId)
+	if err != nil {
+		return Maintenance{}, fmt.Errorf("failed to retrieve asset assignment: %w", err)
+	}
+
+	// 3. Ambil data aset dari relasi assignment
+	asset, err := u.assetRepo.GetAssetById(ctx, assignment.Asset.AssetId)
 	if err != nil {
 		return Maintenance{}, err
 	}
-	//check asset status is available for maintenance
-	if asset.Status != assets.Available {
-		return Maintenance{}, fmt.Errorf("asset with id %s is not available for maintenance", maintenance.AssetId)
+
+	// 4. Pastikan status aset saat ini valid (Available atau Assigned) untuk bisa dimaintenance
+	if asset.Status == assets.Maintenance {
+		return Maintenance{}, fmt.Errorf("asset with id %s is already undergoing maintenance", asset.AssetId)
 	}
 
-	//construct maintenance data
+	// 5. Konstruksi data Maintenance baru dengan mereferensikan AssignmentId
 	var maintenanceData Maintenance
 	maintenanceData.MaintenanceId = uuid.New().String()
 	maintenanceData.Description = maintenance.Description
 	maintenanceData.Cost = maintenance.Cost
 	maintenanceData.Status = maintenance.Status
-	maintenanceData.AssetId = maintenance.AssetId
 	maintenanceData.MaintenanceAt = maintenance.MaintenanceAt
-	maintenanceData.Asset = asset
+	maintenanceData.Assignment.AssignmentId = assignment.AssignmentId
 
-	//create maintenance with transaction
+	// 6. Jalankan pembuatan maintenance di dalam transaksi
 	err = u.repo.CreateMaintenanceTx(ctx, tx, maintenanceData)
 	if err != nil {
 		return Maintenance{}, err
 	}
 
-	//call repo update asset status with transaction
-	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Maintenance)
+	// 7. Update status aset menjadi 'Maintenance'
+	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, asset.AssetId, assets.Maintenance)
 	if err != nil {
 		return Maintenance{}, err
 	}
 
-	//commit transaction
+	// 8. Commit transaksi database
 	if err := tx.Commit(); err != nil {
 		return Maintenance{}, err
 	}
 
+	maintenanceData.Asset = asset
 	return maintenanceData, nil
-
 }
 
 func (u *usecase) GetAllMaintenances(ctx context.Context, maintenanceFilter MaintenanceFilter) ([]Maintenance, pkg.PaginationMeta, error) {
-
 	maintenances, err := u.repo.GetAllMaintenances(ctx, maintenanceFilter)
 	if err != nil {
 		return nil, pkg.PaginationMeta{}, err
-
 	}
+
 	meta, err := u.repo.GetTotalPageAndTotalDataMaintenances(ctx, maintenanceFilter)
 	if err != nil {
 		return nil, pkg.PaginationMeta{}, err
-
 	}
 
-	return maintenances, meta, nil
-
+	return listCompletedCheck(maintenances), meta, nil
 }
 
 func (u *usecase) GetMaintenanceById(ctx context.Context, maintenanceId string) (Maintenance, error) {
@@ -108,29 +121,23 @@ func (u *usecase) GetMaintenanceById(ctx context.Context, maintenanceId string) 
 	if err != nil {
 		return Maintenance{}, err
 	}
-
 	return maintenance, nil
 }
 
-func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, maintenance Maintenance) error {
-	// 1. Mulai transaksi database
+func (u *usecase) UpdateMaintenance(ctx context.Context, maintenanceId string, maintenance Maintenance) error {
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	// Otomatis rollback jika terjadi kegagalan di tengah jalan
 	defer tx.Rollback()
 
-	// 2. Ambil data maintenance yang sudah ada (Pastikan repo ini mendukung transaksi jika diperlukan)
-	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenance_id)
+	existingMaintenance, err := u.repo.GetMaintenanceById(ctx, maintenanceId)
 	if err != nil {
 		return err
 	}
 
-	// 3. Salin data lama ke objek baru untuk melacak perubahan
 	updatedMaintenance := existingMaintenance
 
-	// 4. Perbarui data dasar jika dikirim dari payload frontend
 	if maintenance.Description != "" {
 		updatedMaintenance.Description = maintenance.Description
 	}
@@ -138,10 +145,9 @@ func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, 
 		updatedMaintenance.Cost = maintenance.Cost
 	}
 
-	// 5. Logika Penggabungan Status & Waktu Penyelesaian (CompletedAt)
+	// Logika transisi status & waktu penyelesaian
 	if maintenance.Status != "" {
 		updatedMaintenance.Status = maintenance.Status
-
 		if maintenance.Status == Completed || maintenance.Status == Cancelled {
 			now := time.Now()
 			updatedMaintenance.CompletedAt = &now
@@ -150,31 +156,27 @@ func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, 
 		}
 	}
 
-	// 6. Eksekusi pembaruan data Log Maintenance di dalam Transaksi
-	// Disarankan membuat satu fungsi repo general untuk update semua field sekaligus agar hemat query
-	err = u.repo.UpdateMaintenanceTx(ctx, tx, maintenance_id, updatedMaintenance)
+	err = u.repo.UpdateMaintenanceTx(ctx, tx, maintenanceId, updatedMaintenance)
 	if err != nil {
 		return errors.New("failed to update maintenance record in transaction")
 	}
 
-	// 7. Logika Efek Domino: Update Status Aset di IT Inventory
+	// Efek cascade update status aset berdasarkan status maintenance yang diperbarui
 	if maintenance.Status != "" {
-		var checkStatus assets.AssetStatus
-
+		var nextAssetStatus assets.AssetStatus
 		if updatedMaintenance.Status == Completed || updatedMaintenance.Status == Cancelled {
-			checkStatus = assets.Available
+			// Kembalikan ke status operasional semula (Assigned/Available)
+			nextAssetStatus = assets.Available
 		} else {
-			checkStatus = assets.Maintenance
+			nextAssetStatus = assets.Maintenance
 		}
 
-		// Jalankan pembaruan status aset terikat menggunakan context transaksi (tx) yang sama
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, updatedMaintenance.AssetId, checkStatus)
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, updatedMaintenance.Assignment.AssetId, nextAssetStatus)
 		if err != nil {
 			return errors.New("failed to cascade update asset status by id")
 		}
 	}
 
-	// 8. Komit transaksi jika seluruh operasi di atas sukses tanpa hambatan
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -183,7 +185,11 @@ func (u *usecase) UpdateMaintenance(ctx context.Context, maintenance_id string, 
 }
 
 func (u *usecase) GetAllMaintenancesData(ctx context.Context) ([]Maintenance, error) {
-	return u.repo.GetAllMaintenancesData(ctx)
+	maintenances, err := u.repo.GetAllMaintenancesData(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return listCompletedCheck(maintenances), nil
 }
 
 func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenanceId string, status string, completedAt *time.Time) error {
@@ -191,28 +197,33 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenanceId str
 	if err != nil {
 		return err
 	}
-
 	defer tx.Rollback()
-	var updateMaintenanceData Maintenance
-	updateMaintenanceData.Status = MaintenanceStatus(status)
-	updateMaintenanceData.CompletedAt = completedAt
+
 	maintenance, err := u.repo.GetMaintenanceById(ctx, maintenanceId)
 	if err != nil {
 		return err
 	}
 
-	if updateMaintenanceData.Status == Completed || updateMaintenanceData.Status == Cancelled {
+	var updateMaintenanceData Maintenance
+	updateMaintenanceData.Status = MaintenanceStatus(status)
+	updateMaintenanceData.CompletedAt = completedAt
 
-		//get asset by id and update
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Available)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, maintenance.AssetId, assets.Maintenance)
+	assignment, err := u.assetassignmentsRepo.GetAssetAssignmentById(ctx, maintenance.Assignment.AssignmentId)
+	// Manajemen status aset ketika status maintenance diperbarui
+	switch updateMaintenanceData.Status {
+	case Pending:
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Assigned)
+	case InProgress:
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Maintenance)
+	case Completed, Cancelled:
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Assigned)
 	}
 
-	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, maintenanceId, updateMaintenanceData)
+	if err != nil {
+		return fmt.Errorf("failed to update cascade asset status: %w", err)
+	}
+
+	err = u.repo.UpdateMaintenanceTx(ctx, tx, maintenanceId, updateMaintenanceData)
 	if err != nil {
 		return err
 	}
@@ -220,5 +231,65 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenanceId str
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+
 	return nil
+}
+
+func (u *usecase) CreateRequest(ctx context.Context, createMaintenance Maintenance) error {
+	rawClaims := ctx.Value(middleware.Claimskey)
+	if rawClaims == nil {
+		return errors.New("unauthorized: user data is not valid")
+	}
+
+	claim, ok := rawClaims.(*pkg.Claims)
+	if !ok {
+		return errors.New("unauthorized: format claims is not valid")
+	}
+
+	// Validasi bahwa AssignmentId yang dikirimkan user memang valid
+	assignment, err := u.assetassignmentsRepo.GetAssetAssignmentById(ctx, createMaintenance.Assignment.AssignmentId)
+	if err != nil {
+		return fmt.Errorf("invalid asset assignment: %w", err)
+	}
+
+	var maintenanceRequest Maintenance
+	maintenanceRequest.MaintenanceId = uuid.New().String()
+	maintenanceRequest.User.UserId = claim.UserID
+	maintenanceRequest.Description = createMaintenance.Description
+	maintenanceRequest.Assignment.AssetId = assignment.Asset.AssetId // Petakan asset id dari data assignment
+	maintenanceRequest.Assignment.AssignmentId = assignment.AssignmentId
+
+	err = u.repo.CreateRequest(ctx, maintenanceRequest)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (u *usecase) GetAllMaintenancesByUserId(ctx context.Context) ([]Maintenance, error) {
+	rawClaims := ctx.Value(middleware.Claimskey)
+	if rawClaims == nil {
+		return nil, errors.New("unauthorized: user data is not valid")
+	}
+
+	claim, ok := rawClaims.(*pkg.Claims)
+	if !ok {
+		return nil, errors.New("unauthorized: format claims is not valid")
+	}
+
+	maintenances, err := u.repo.GetAllMaintenancesByUserId(ctx, claim.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return listCompletedCheck(maintenances), nil
+}
+
+// helper mencegah return nil slice ke format response JSON frontend
+func listCompletedCheck(m []Maintenance) []Maintenance {
+	if m == nil {
+		return []Maintenance{}
+	}
+	return m
 }

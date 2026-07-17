@@ -21,6 +21,7 @@ type AssetAssignmentFilter struct {
 type assetAssignmentRequest struct {
 	AssetId      string `json:"asset_id"`
 	UserId       string `json:"user_id"`
+	Corporation  string `json:"corporation"`
 	Notes        string `json:"notes"`
 	Status       string `json:"status"`
 	AssignedDate string `json:"assigned_date"`
@@ -32,6 +33,7 @@ type assetAssignmentResponse struct {
 	Status       string `json:"Status,omitempty"`
 	AssignedDate string `json:"AssignedDate"`
 	ReturnDate   string `json:"ReturnDate,omitempty"`
+	Corporation  string `json:"Corporation,omitempty"`
 	UserId       string `json:"UserId"`
 	Username     string `json:"Username"`
 
@@ -77,6 +79,7 @@ type Handler interface {
 	CreateAssetAssignment(w http.ResponseWriter, r *http.Request) // Fix typo uppercase S
 	UpdateAssetAssignment(w http.ResponseWriter, r *http.Request)
 	UpdateAssetAssignmentStatus(w http.ResponseWriter, r *http.Request)
+	GetAssignmentsByUserId(w http.ResponseWriter, r *http.Request)
 }
 
 type handler struct {
@@ -137,7 +140,7 @@ func (h *handler) GetAllAssetAssignments(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var assignmentResponse []assetAssignmentResponse = []assetAssignmentResponse{} // Inisialisasi empty slice agar di JSON tidak null
+	var assignmentResponse []assetAssignmentResponse // Inisialisasi empty slice agar di JSON tidak null
 	for _, item := range assignments {
 		var assignmentItem assetAssignmentResponse
 		assignmentItem.AssignmentId = item.AssignmentId
@@ -148,8 +151,13 @@ func (h *handler) GetAllAssetAssignments(w http.ResponseWriter, r *http.Request)
 		assignmentItem.AssignedById = item.AssignedById
 		assignmentItem.AssignedByUsername = item.AssignedByUsername
 		assignmentItem.Status = string(item.Status)
+		assignmentItem.Corporation = item.Corporation
 		assignmentItem.AssignedDate = pkg.ParseFromDateToString(item.AssignedDate)
 
+		assignmentItem.Processor = item.Asset.Processor
+		assignmentItem.Storage = item.Asset.Storage
+		assignmentItem.SerialNumber = item.Asset.SerialNumber
+		assignmentItem.Ram = item.Asset.Ram
 		assignmentResponse = append(assignmentResponse, assignmentItem)
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Success retrieve data!", assignmentResponse, meta)
@@ -174,6 +182,7 @@ func (h *handler) GetAssetAssignmentById(w http.ResponseWriter, r *http.Request)
 	//assignments
 	assignmentResponseData.AssignmentId = assignment.AssignmentId
 	assignmentResponseData.Notes = assignment.Notes
+	assignmentResponseData.Corporation = assignment.Corporation
 	assignmentResponseData.Status = string(assignment.Status)
 	assignmentResponseData.AssignedDate = pkg.ParseFromDateToString(assignment.AssignedDate)
 	if assignment.ReturnDate != nil {
@@ -252,6 +261,7 @@ func (h *handler) CreateAssetAssignment(w http.ResponseWriter, r *http.Request) 
 	var assignment AssetAssignment
 	assignment.AssetId = req.AssetId
 	assignment.Notes = req.Notes
+	assignment.Corporation = req.Corporation
 	assignment.Status = AssignmentStatus(req.Status)
 	assignment.AssignedDate = assignedDateParsed
 	assignment.UserId = req.UserId
@@ -292,6 +302,7 @@ func (h *handler) UpdateAssetAssignment(w http.ResponseWriter, r *http.Request) 
 	updatedData.Status = AssignmentStatus(assignmentReq.Status)
 	updatedData.Notes = assignmentReq.Notes
 	updatedData.UserId = assignmentReq.UserId
+	updatedData.Corporation = assignmentReq.Corporation
 	now := time.Now()
 	updatedData.ReturnDate = &now
 	err = h.usecase.UpdateAssignmentById(r.Context(), assignmentId, updatedData)
@@ -334,7 +345,7 @@ func (h *handler) GetAllAssignmentsData(w http.ResponseWriter, r *http.Request) 
 		assignment.AssignedToUsername = item.User.Username
 		assignment.AssignedToEmail = item.User.Email
 		assignment.AssignedToRole = item.User.Role
-
+		assignment.Corporation = item.Corporation
 		//user whos assign
 		assignment.AssignedById = item.AssignedById
 		assignment.AssignedByUsername = item.AssignedByUsername
@@ -395,4 +406,69 @@ func (h *handler) UpdateAssetAssignmentStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 	pkg.JSONResponse(w, http.StatusOK, "Asset assignment status has been successfully updated!", nil, nil)
+}
+
+func (h *handler) GetAssignmentsByUserId(w http.ResponseWriter, r *http.Request) {
+	// 1. Tangkap parameter status dari query URL (?status=...)
+	status := r.URL.Query().Get("status")
+
+	// 2. Oper parameter status ke layer usecase (pastikan fungsi di usecase sudah menerima parameter ini)
+	assignments, err := h.usecase.GetAssetAssignmentByUserId(r.Context(), status)
+	if err != nil {
+		pkg.ErrorResponse(w, http.StatusInternalServerError, err.Error(), err.Error())
+		return
+	}
+
+	// Buat slice kosong bawaan agar jika data kosong, JSON di frontend menghasilkan [] bukan null
+	assignmentsResponseData := []assetAssignmentResponse{}
+
+	for _, item := range assignments {
+		var assignment assetAssignmentResponse
+
+		// assignments
+		assignment.AssignmentId = item.AssignmentId
+		assignment.Notes = item.Notes
+		assignment.Status = string(item.Status)
+		assignment.AssignedDate = pkg.ParseFromDateToString(item.AssignedDate)
+		if item.ReturnDate != nil {
+			assignment.ReturnDate = pkg.ParseFromDateToString(*item.ReturnDate)
+		} else {
+			assignment.ReturnDate = ""
+		}
+
+		// user assigned
+		assignment.AssignedToId = item.UserId
+		assignment.AssignedToUsername = item.User.Username
+		assignment.AssignedToEmail = item.User.Email
+		assignment.AssignedToRole = item.User.Role
+		assignment.Corporation = item.Corporation
+
+		// user who assigned
+		assignment.AssignedById = item.AssignedById
+		assignment.AssignedByUsername = item.AssignedByUsername
+
+		// asset
+		assignment.AssetId = item.AssetId
+		assignment.AssetName = item.Asset.AssetName
+		assignment.SerialNumber = item.Asset.SerialNumber
+		assignment.PurchasedDate = pkg.ParseFromDateToString(item.Asset.PurchasedDate)
+
+		// Brand
+		assignment.BrandId = item.Asset.BrandId
+		assignment.BrandName = item.Asset.Brand.BrandName
+
+		// category
+		assignment.CategoryId = item.Asset.CategoryId
+		assignment.CategoryName = item.Asset.Category.CategoryName
+
+		// Department
+		assignment.DepartmentId = item.User.Department.DepartmentId
+		assignment.DepartmentName = item.User.Department.DepartmentName
+		assignment.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
+		assignment.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
+
+		assignmentsResponseData = append(assignmentsResponseData, assignment)
+	}
+
+	pkg.JSONResponse(w, http.StatusOK, "Success retrieve data assignments by user id!", assignmentsResponseData, nil)
 }
