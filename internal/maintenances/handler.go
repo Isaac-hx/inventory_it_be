@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"inventory-it/internal/pkg"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,6 +17,7 @@ type MaintenanceRes struct {
 	Cost          int64  `json:"Cost"`
 	Status        string `json:"Status"`
 	AssetId       string `json:"AssetId"`
+	AssignmentId  string `json:"AssignmentId"`
 	AssetName     string `json:"AssetName"`
 	MaintenanceAt string `json:"MaintenanceAt,omitempty"`
 	CompletedAt   string `json:"CompletedAt,omitempty"`
@@ -36,6 +38,7 @@ type MaintenanceReq struct {
 	Cost          int64  `json:"cost,omitempty"`
 	Status        string `json:"status,omitempty"`
 	AssetId       string `json:"asset_id,omitempty"`
+	AssignmentId  string `json:"assignment_id,omitempty"`
 	MaintenanceAt string `json:"maintenance_at,omitempty"`
 	CompletedAt   string `json:"completed_at,omitempty"`
 }
@@ -193,21 +196,20 @@ func (h *handler) CreateMaintenance(w http.ResponseWriter, r *http.Request) {
 	createMaintenance.Description = maintenanceRequest.Description
 	createMaintenance.Cost = maintenanceRequest.Cost
 	createMaintenance.Status = MaintenanceStatus(maintenanceRequest.Status)
-	createMaintenance.Assignment.AssetId = maintenanceRequest.AssetId
+	createMaintenance.Assignment.AssignmentId = maintenanceRequest.AssignmentId
 	timeParse, err := pkg.ParseFromStringToDate(maintenanceRequest.MaintenanceAt)
 	if err != nil {
 		pkg.ErrorResponse(w, http.StatusBadRequest, "Invalid type time data", nil)
 		return
 
 	}
+
+	log.Println(createMaintenance.Assignment.AssetId)
 	createMaintenance.MaintenanceAt = timeParse
 
 	maintenanceData, err := h.usecase.CreateMaintenance(r.Context(), createMaintenance)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			pkg.ErrorResponse(w, http.StatusNotFound, "Asset not found", nil)
-			return
-		}
+
 		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to create maintenance!!", err.Error())
 		return
 	}

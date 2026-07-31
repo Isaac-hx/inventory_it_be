@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"inventory-it/internal/pkg"
+	"log"
 	"math"
 )
 
@@ -71,19 +72,8 @@ func (r *repository) GetDepartmentById(ctx context.Context, departmentId string)
 	}
 	return department, nil
 }
-
 func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, error) {
-
-	query := `
-		SELECT 
-			department_id, 
-			department_name, 
-			created_at, 
-			updated_at
-		FROM departments
-		WHERE 1=1
-	`
-
+	query := `SELECT department_id, department_name, created_at, updated_at FROM departments WHERE 1=1`
 	args := []any{}
 
 	if filter.Search != "" {
@@ -112,7 +102,6 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 	}
 
 	offset := (filter.Page - 1) * filter.Limit
-
 	query += ` LIMIT ? OFFSET ? `
 	args = append(args, filter.Limit, offset)
 
@@ -122,11 +111,9 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 	}
 	defer rows.Close()
 
-	departmentList := []Department{}
-
+	var departmentList []Department
 	for rows.Next() {
 		var department Department
-
 		err := rows.Scan(
 			&department.DepartmentId,
 			&department.DepartmentName,
@@ -139,13 +126,8 @@ func (r *repository) GetAllDepartments(ctx context.Context, filter DepartmentFil
 		departmentList = append(departmentList, department)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
 	return departmentList, nil
 }
-
 func (r *repository) GetDepartmentByName(ctx context.Context, departmentName string) (Department, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT department_id, department_name, created_at, updated_at FROM departments WHERE department_name = ?`, departmentName)
 	department := Department{}
@@ -160,46 +142,46 @@ func (r *repository) GetTotalPageAndTotalDataDepartments(ctx context.Context, fi
 	query := `
 		SELECT COUNT(*)
 		FROM departments
+		WHERE 1=1
 	`
 
 	args := []any{}
 	var paginationData pkg.PaginationMeta
 
 	if filter.Search != "" {
-		query += `
-			AND (
-				department_name LIKE ?
-	
-			)
-		`
-
+		query += ` AND department_name LIKE ? `
 		search := "%" + filter.Search + "%"
 		args = append(args, search)
 	}
+
 	var totalData int
-
-	err := r.db.QueryRowContext(
-		ctx,
-		query,
-		args...,
-	).Scan(&totalData)
-
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&totalData)
 	if err != nil {
 		return paginationData, err
 	}
 
-	var totalPage int
-
-	if filter.Limit > 0 {
-		totalPage = int(math.Ceil(
-			float64(totalData) / float64(filter.Limit),
-		))
+	// 1. Definisikan default jika Page / Limit <= 0 agar perhitungan tidak acak
+	page := filter.Page
+	if page <= 0 {
+		page = 1
 	}
 
-	paginationData.Page = filter.Page
-	paginationData.Limit = filter.Limit
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// 2. Hitung total halaman
+	totalPage := 0
+	if totalData > 0 {
+		totalPage = int(math.Ceil(float64(totalData) / float64(limit)))
+	}
+
+	// 3. Set hasil metadata
+	paginationData.Page = page
+	paginationData.Limit = limit
 	paginationData.TotalData = totalData
 	paginationData.TotalPage = totalPage
-
+	log.Println(paginationData)
 	return paginationData, nil
 }

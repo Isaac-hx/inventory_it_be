@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"inventory-it/internal/pkg"
-	"log"
 	"math"
 )
 
@@ -123,7 +122,7 @@ func (r *repository) GetAssetAssignmentById(ctx context.Context, assignmentId st
 	var assetAssignment AssetAssignment
 	err := r.db.QueryRowContext(ctx, query, assignmentId).Scan(
 		&assetAssignment.AssignmentId,
-		&assetAssignment.AssetId,
+		&assetAssignment.Asset.AssetId,
 		&assetAssignment.UserId,
 		&assetAssignment.AssignedById,
 		&assetAssignment.Status,
@@ -486,7 +485,6 @@ func (r *repository) UpdateStatusAssignmentByIdTx(ctx context.Context, tx *sql.T
 }
 func (r *repository) GetAssignmentsByUserId(ctx context.Context, userId string, status AssignmentStatus) ([]AssetAssignment, error) {
 	// Menambahkan filter status ke dalam WHERE clause menggunakan AND
-	log.Println(userId)
 	query := `
     SELECT
         aa.assignment_id,
@@ -537,7 +535,6 @@ func (r *repository) GetAssignmentsByUserId(ctx context.Context, userId string, 
 		return nil, err
 	}
 	defer rows.Close()
-	log.Println(rows)
 	var assignments []AssetAssignment
 
 	for rows.Next() {
@@ -588,7 +585,6 @@ func (r *repository) GetAssignmentsByUserId(ctx context.Context, userId string, 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	log.Println(assignments)
 	return assignments, nil
 }
 func (r *repository) UpdateStatusAssignmentByAssetIdTx(ctx context.Context, tx *sql.Tx, assetId string, status AssignmentStatus) error {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"inventory-it/internal/pkg"
-	"log"
 	"net/http"
 )
 
@@ -146,7 +145,6 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 	userResp.User.Role = userRegistered.Role
 	userResp.User.Username = userRegistered.Username
 	userResp.Token = token
-	log.Println(userResp.User.Department)
 	pkg.JSONResponse(w, http.StatusOK, "Login successful", userResp, nil)
 }
 

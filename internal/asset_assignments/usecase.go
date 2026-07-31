@@ -8,7 +8,6 @@ import (
 	"inventory-it/internal/middleware"
 	"inventory-it/internal/pkg"
 	"inventory-it/internal/user"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -230,9 +229,8 @@ func (u *usecase) UpdateAssignmentStatus(ctx context.Context, assignmentId strin
 	if err != nil {
 		return err
 	}
-	log.Println(assignment.Status)
 	//update status asset
-	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Available)
+	err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.Asset.AssetId, assets.Available)
 	if err != nil {
 		return err
 	}

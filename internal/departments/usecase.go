@@ -62,13 +62,25 @@ func (u *usecase) GetDepartmentById(ctx context.Context, departmentId string) (D
 }
 
 func (u *usecase) GetAllDepartments(ctx context.Context, filter DepartmentFilter) ([]Department, pkg.PaginationMeta, error) {
+	// 1. Set default value di level Usecase agar konsisten untuk semua panggilan repo
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 10
+	}
+
+	// 2. Ambil data departments
 	departments, err := u.repo.GetAllDepartments(ctx, filter)
 	if err != nil {
 		return nil, pkg.PaginationMeta{}, err
 	}
+
+	// 3. Ambil metadata pagination
 	meta, err := u.repo.GetTotalPageAndTotalDataDepartments(ctx, filter)
 	if err != nil {
 		return nil, pkg.PaginationMeta{}, err
 	}
+
 	return departments, meta, nil
 }

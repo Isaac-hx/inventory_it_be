@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"inventory-it/internal/pkg"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -140,54 +141,56 @@ func (h *handler) GetDepartmentById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetAllDepartments(w http.ResponseWriter, r *http.Request) {
-	var departmentFilter DepartmentFilter
-	//define context
-
-	//get query params
 	query := r.URL.Query()
+
 	search := query.Get("search")
-	limitStr := query.Get("limit")
-	pageStr := query.Get("page")
 	orderBy := query.Get("order_by")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
+
+	limit, err := strconv.Atoi(query.Get("limit"))
+	if err != nil || limit <= 0 {
 		limit = 10
 	}
-	page, err := strconv.Atoi(pageStr)
-	if err != nil {
+
+	page, err := strconv.Atoi(query.Get("page"))
+	if err != nil || page <= 0 {
 		page = 1
 	}
 
 	if orderBy != "asc" && orderBy != "desc" {
 		orderBy = "asc"
 	}
-	if limit <= 0 {
-		departmentFilter.Limit = 10
+
+	departmentFilter := DepartmentFilter{
+		Search:  search,
+		OrderBy: orderBy,
+		Page:    page,
+		Limit:   limit,
 	}
 
-	if page <= 0 {
-		departmentFilter.Page = 1
-	}
-	//structuring object departmentFilter
-	departmentFilter.Search = search
-	departmentFilter.OrderBy = orderBy
+	log.Printf("Page: %d, Limit: %d", page, limit)
 
-	// Implementation for retrieving all departments
 	departments, meta, err := h.usecase.GetAllDepartments(r.Context(), departmentFilter)
 	if err != nil {
-		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get departments!!", err)
+		pkg.ErrorResponse(w, http.StatusInternalServerError, "Failed to get departments!", err)
 		return
 	}
 
-	var departementsResponseData []DepartmentResponse
+	var response []DepartmentResponse
+
 	for _, item := range departments {
-		var department DepartmentResponse
-		department.DepartmentId = item.DepartmentId
-		department.DepartmentName = item.DepartmentName
-		department.CreatedAt = pkg.ParseFromDateToString(item.CreatedAt)
-		department.UpdatedAt = pkg.ParseFromDateToString(item.UpdatedAt)
-		departementsResponseData = append(departementsResponseData, department)
+		response = append(response, DepartmentResponse{
+			DepartmentId:   item.DepartmentId,
+			DepartmentName: item.DepartmentName,
+			CreatedAt:      pkg.ParseFromDateToString(item.CreatedAt),
+			UpdatedAt:      pkg.ParseFromDateToString(item.UpdatedAt),
+		})
 	}
 
-	pkg.JSONResponse(w, http.StatusOK, "Departments retrieved successfully!!", departementsResponseData, meta)
+	pkg.JSONResponse(
+		w,
+		http.StatusOK,
+		"Departments retrieved successfully!",
+		response,
+		meta,
+	)
 }

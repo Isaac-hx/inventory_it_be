@@ -205,14 +205,14 @@ func (r *MaintenanceRepository) CreateMaintenanceTx(ctx context.Context, tx *sql
 	query := `
         INSERT INTO maintenances (
             maintenance_id,
-            asset_id,
+            assignment_id,
             description,
             cost,
             status,
             maintenance_at
         ) VALUES (?, ?, ?, ?, ?, ?)
     `
-	_, err := tx.ExecContext(ctx, query, m.MaintenanceId, m.Asset.AssetId, m.Description, m.Cost, m.Status, m.MaintenanceAt)
+	_, err := tx.ExecContext(ctx, query, m.MaintenanceId, m.Assignment.AssignmentId, m.Description, m.Cost, m.Status, m.MaintenanceAt)
 	return err
 }
 

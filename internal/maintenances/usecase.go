@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	assetassignments "inventory-it/internal/asset_assignments"
@@ -54,13 +55,13 @@ func (u *usecase) CreateMaintenance(ctx context.Context, maintenance Maintenance
 		return Maintenance{}, err
 	}
 	defer tx.Rollback()
+	log.Println(maintenance.Assignment.AssignmentId)
 
 	// 2. Ambil data Assignment berdasarkan AssignmentId, bukan lagi langsung via AssetId
 	assignment, err := u.assetassignmentsRepo.GetAssetAssignmentById(ctx, maintenance.Assignment.AssignmentId)
 	if err != nil {
 		return Maintenance{}, fmt.Errorf("failed to retrieve asset assignment: %w", err)
 	}
-
 	// 3. Ambil data aset dari relasi assignment
 	asset, err := u.assetRepo.GetAssetById(ctx, assignment.Asset.AssetId)
 	if err != nil {
@@ -212,18 +213,18 @@ func (u *usecase) UpdateStatusMaintenance(ctx context.Context, maintenanceId str
 	// Manajemen status aset ketika status maintenance diperbarui
 	switch updateMaintenanceData.Status {
 	case Pending:
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Assigned)
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.Asset.AssetId, assets.Assigned)
 	case InProgress:
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Maintenance)
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.Asset.AssetId, assets.Maintenance)
 	case Completed, Cancelled:
-		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.AssetId, assets.Assigned)
+		err = u.assetRepo.UpdateAssetStatusById(ctx, tx, assignment.Asset.AssetId, assets.Assigned)
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to update cascade asset status: %w", err)
 	}
 
-	err = u.repo.UpdateMaintenanceTx(ctx, tx, maintenanceId, updateMaintenanceData)
+	err = u.repo.UpdateMaintenanceStatusTx(ctx, tx, maintenanceId, updateMaintenanceData)
 	if err != nil {
 		return err
 	}
